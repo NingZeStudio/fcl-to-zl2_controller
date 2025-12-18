@@ -258,37 +258,91 @@ export class FCLToZL2Converter {
     const buttons: ZL2NormalButton[] = []
 
     directions.forEach(dir => {
-      const baseX = Math.round(dir.baseInfo.xPosition * 10)
-      const baseY = Math.round(dir.baseInfo.yPosition * 10)
-      const size = 1200 // 默认方向键按钮大小
-
-      // 创建 8 个方向按钮
-      const dirButtons = [
-        { text: '◤', keys: [dir.event.upKeycode, dir.event.leftKeycode], x: baseX, y: baseY },
-        { text: '▲', keys: [dir.event.upKeycode], x: baseX + size, y: baseY },
-        { text: '◥', keys: [dir.event.upKeycode, dir.event.rightKeycode], x: baseX + size * 2, y: baseY },
-        { text: '◀', keys: [dir.event.leftKeycode], x: baseX, y: baseY + size },
-        { text: '▶', keys: [dir.event.rightKeycode], x: baseX + size * 2, y: baseY + size },
-        { text: '◣', keys: [dir.event.downKeycode, dir.event.leftKeycode], x: baseX, y: baseY + size * 2 },
-        { text: '▼', keys: [dir.event.downKeycode], x: baseX + size, y: baseY + size * 2 },
-        { text: '◢', keys: [dir.event.downKeycode, dir.event.rightKeycode], x: baseX + size * 2, y: baseY + size * 2 },
+      // 使用 ZL2 默认移动按钮的精确布局和样式
+      const moveButtons = [
+        // 第一行
+        {
+          text: '◤',
+          uuid: this.generateUUID(),
+          position: { x: 794, y: 5411 },
+          style: 'topstart',
+          keys: [dir.event.upKeycode, dir.event.leftKeycode]
+        },
+        {
+          text: '▲',
+          uuid: this.generateUUID(),
+          position: { x: 1474, y: 5410 },
+          style: 'default',
+          keys: [dir.event.upKeycode]
+        },
+        {
+          text: '◥',
+          uuid: this.generateUUID(),
+          position: { x: 2154, y: 5410 },
+          style: 'topend',
+          keys: [dir.event.upKeycode, dir.event.rightKeycode]
+        },
+        // 第二行
+        {
+          text: '◀',
+          uuid: this.generateUUID(),
+          position: { x: 794, y: 7011 },
+          style: 'default',
+          keys: [dir.event.leftKeycode]
+        },
+        {
+          text: '',
+          uuid: this.generateUUID(),
+          position: { x: 1474, y: 7011 },
+          style: 'default',
+          keys: [] // 中心按钮，无按键
+        },
+        {
+          text: '▶',
+          uuid: this.generateUUID(),
+          position: { x: 2154, y: 7011 },
+          style: 'default',
+          keys: [dir.event.rightKeycode]
+        },
+        // 第三行
+        {
+          text: '◣',
+          uuid: this.generateUUID(),
+          position: { x: 794, y: 8611 },
+          style: 'bottomstart',
+          keys: [dir.event.downKeycode, dir.event.leftKeycode]
+        },
+        {
+          text: '▼',
+          uuid: this.generateUUID(),
+          position: { x: 1474, y: 8611 },
+          style: 'default',
+          keys: [dir.event.downKeycode]
+        },
+        {
+          text: '◢',
+          uuid: this.generateUUID(),
+          position: { x: 2154, y: 8611 },
+          style: 'bottomend',
+          keys: [dir.event.downKeycode, dir.event.rightKeycode]
+        }
       ]
 
-      dirButtons.forEach(btn => {
+      moveButtons.forEach(btn => {
         buttons.push({
           text: this.createTranslatableString(btn.text),
-          uuid: this.generateUUID(),
-          position: { x: btn.x, y: btn.y },
+          uuid: btn.uuid,
+          position: btn.position,
           buttonSize: {
             type: 'percentage',
-            widthDp: 50,
-            heightDp: 50,
-            widthPercentage: size,
-            heightPercentage: size,
+            widthDp: 50.0,
+            heightDp: 50.0,
+            widthPercentage: 1380,
+            heightPercentage: 1380,
             widthReference: 'screen_height',
             heightReference: 'screen_height'
           },
-          buttonStyle: this.getStyleUUID(dir.style),
+          buttonStyle: btn.style,
           textAlignment: 'Center',
           textBold: false,
           textItalic: false,
@@ -311,6 +365,10 @@ export class FCLToZL2Converter {
   private convertStyles(fcl: FCLController): ZL2ButtonStyle[] {
     const styles: ZL2ButtonStyle[] = []
 
+    // 添加 ZL2 默认样式
+    this.addDefaultZL2Styles(styles)
+
+    // 转换 FCL 样式
     fcl.buttonStyles.forEach(style => {
       const uuid = this.generateUUID()
       this.styleMap.set(style.name, uuid)
@@ -325,6 +383,81 @@ export class FCLToZL2Converter {
     })
 
     return styles
+  }
+
+  private addDefaultZL2Styles(styles: ZL2ButtonStyle[]): void {
+    const defaultStyles = [
+      {
+        name: 'topend',
+        uuid: '21b054786830',
+        borderRadius: { topStart: 0.0, topEnd: 40.0, bottomEnd: 0.0, bottomStart: 0.0 }
+      },
+      {
+        name: 'topstart',
+        uuid: '43f4fb63f80a',
+        borderRadius: { topStart: 40.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 }
+      },
+      {
+        name: 'bottomend',
+        uuid: '0fa337d97f90',
+        borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 40.0, bottomStart: 0.0 }
+      },
+      {
+        name: 'bottomstart',
+        uuid: 'a5824dc0029d',
+        borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 40.0 }
+      },
+      {
+        name: 'end',
+        uuid: 'd8cd25b80d5d',
+        borderRadius: { topStart: 0.0, topEnd: 40.0, bottomEnd: 40.0, bottomStart: 0.0 }
+      },
+      {
+        name: 'start',
+        uuid: 'ea3ab7bc621f',
+        borderRadius: { topStart: 40.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 40.0 }
+      },
+      {
+        name: 'rounded',
+        uuid: 'cac8c754ffa0',
+        borderRadius: { topStart: 40.0, topEnd: 40.0, bottomEnd: 40.0, bottomStart: 40.0 }
+      },
+      {
+        name: 'default',
+        uuid: 'd1096cf91caa',
+        borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 }
+      }
+    ]
+
+    defaultStyles.forEach(styleConfig => {
+      const baseStyle = {
+        alpha: 1.0,
+        pressedAlpha: 1.0,
+        backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
+        pressedBackgroundColor: SAFE_ZL2_COLORS.GRAY,
+        contentColor: SAFE_ZL2_COLORS.WHITE,
+        pressedContentColor: SAFE_ZL2_COLORS.WHITE,
+        fontSize: null,
+        pressedFontSize: null,
+        borderWidth: 0,
+        pressedBorderWidth: 0,
+        borderColor: SAFE_ZL2_COLORS.WHITE,
+        pressedBorderColor: SAFE_ZL2_COLORS.WHITE,
+        borderRadius: styleConfig.borderRadius,
+        pressedBorderRadius: styleConfig.borderRadius
+      }
+
+      styles.push({
+        name: styleConfig.name,
+        uuid: styleConfig.uuid,
+        animateSwap: false,
+        lightStyle: baseStyle,
+        darkStyle: baseStyle
+      })
+
+      // 建立样式映射
+      this.styleMap.set(styleConfig.name, styleConfig.uuid)
+    })
   }
 
   private convertStyleConfig(fclStyle: FCLButtonStyle): ZL2ButtonStyle['lightStyle'] {
