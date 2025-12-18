@@ -39,12 +39,21 @@
             </p>
           </div>
           
-          <Textarea
-            v-model="fclInput"
-            placeholder='粘贴 FCL JSON 配置...'
-            class="font-mono text-xs h-[500px]"
-            :class="{ 'border-red-500': inputError }"
-          />
+          <div
+            class="relative"
+            @dragover.prevent
+            @dragenter.prevent
+            @drop="handleFileDrop"
+          >
+            <Textarea
+              v-model="fclInput"
+              placeholder='粘贴 FCL JSON 配置，或拖拽 JSON 文件到此处...'
+              class="font-mono text-xs h-[500px]"
+              :class="{ 'border-red-500': inputError, 'border-blue-500 bg-blue-50 dark:bg-blue-950': isDragOver }"
+              @dragover="isDragOver = true"
+              @dragleave="isDragOver = false"
+            />
+          </div>
           
           <div v-if="inputError" class="mt-2 text-sm text-red-600 dark:text-red-400">
             {{ inputError }}
@@ -55,11 +64,24 @@
               <FileText class="h-4 w-4" />
               加载示例
             </Button>
+            <Button @click="triggerFileInput" variant="outline" size="sm" class="flex items-center gap-2">
+              <FileInput class="h-4 w-4" />
+              导入文件
+            </Button>
             <Button @click="clearInput" variant="ghost" size="sm" class="flex items-center gap-2">
               <X class="h-4 w-4" />
               清空
             </Button>
           </div>
+          
+          <!-- 隐藏的文件输入 -->
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".json"
+            @change="handleFileImport"
+            class="hidden"
+          />
         </Card>
 
         <!-- 输出区 -->
@@ -121,20 +143,21 @@
       <Card class="mt-8 p-6">
         <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-3">使用说明</h3>
         <ol class="list-decimal list-inside space-y-2 text-sm text-slate-700 dark:text-slate-300">
-          <li>在左侧输入框粘贴 FCL 控件的 JSON 配置</li>
+          <li>粘贴 FCL JSON 配置到左侧输入框，或点击"导入文件"选择 JSON 文件</li>
           <li>点击"开始转换"按钮</li>
           <li>在右侧查看转换后的 ZL2 配置</li>
-          <li>复制或下载转换结果</li>
+          <li>复制或下载转换结果（文件名格式：zl2_控件ID.json）</li>
           <li>在 ZL2 启动器中导入转换后的配置</li>
         </ol>
         
         <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md">
           <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-1 text-sm">转换说明</h4>
           <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+            <li>• 支持拖拽或点击导入 FCL JSON 文件</li>
             <li>• 方向键会被转换为 8 个独立按钮（支持斜向移动）</li>
             <li>• 键码会自动映射为 GLFW 格式</li>
             <li>• 样式使用安全的颜色值，避免崩溃</li>
-            <li>• 坐标和尺寸会自动调整为 ZL2 格式</li>
+            <li>• 输出文件名自动包含原控件 ID</li>
           </ul>
         </div>
       </Card>
@@ -170,6 +193,9 @@ const fclInput = ref('')
 const zl2Output = ref('')
 const inputError = ref('')
 const converting = ref(false)
+const fileInputRef = ref<HTMLInputElement>()
+const currentFclId = ref('')
+const isDragOver = ref(false)
 const conversionStats = ref<{
   layers: number
   buttons: number
@@ -190,6 +216,9 @@ function convert() {
     if (!fclController.viewGroups || !Array.isArray(fclController.viewGroups)) {
       throw new Error('无效的 FCL 配置：缺少 viewGroups')
     }
+
+    // 保存 FCL 控件 ID 用于文件名
+    currentFclId.value = fclController.id || 'unknown'
 
     // 执行转换
     const zl2Layout = converter.convert(fclController)
@@ -221,6 +250,7 @@ function convert() {
     inputError.value = error instanceof Error ? error.message : '转换失败'
     zl2Output.value = ''
     conversionStats.value = null
+    currentFclId.value = ''
   } finally {
     converting.value = false
   }
@@ -239,7 +269,9 @@ function downloadOutput() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'zl2_control_layout.json'
+    // 使用 FCL 控件 ID 作为文件名
+    const fileName = currentFclId.value ? `zl2_${currentFclId.value}.json` : 'zl2_control_layout.json'
+    a.download = fileName
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -248,6 +280,78 @@ function downloadOutput() {
 function clearInput() {
   fclInput.value = ''
   inputError.value = ''
+  currentFclId.value = ''
+}
+
+function triggerFileInput() {
+  fileInputRef.value?.click()
+}
+
+function handleFileImport(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  
+  if (!file) return
+  
+  if (!file.name.endsWith('.json')) {
+    inputError.value = '请选择 JSON 文件'
+    return
+  }
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const content = e.target?.result as string
+      // 验证是否为有效的 JSON
+      JSON.parse(content)
+      fclInput.value = content
+      inputError.value = ''
+    } catch (error) {
+      inputError.value = '文件格式错误：不是有效的 JSON 文件'
+    }
+  }
+  
+  reader.onerror = () => {
+    inputError.value = '文件读取失败'
+  }
+  
+  reader.readAsText(file)
+  
+  // 清空 input 值，允许重复选择同一文件
+  target.value = ''
+}
+
+function handleFileDrop(event: DragEvent) {
+  event.preventDefault()
+  isDragOver.value = false
+  
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+  
+  const file = files[0]
+  if (!file.name.endsWith('.json')) {
+    inputError.value = '请拖拽 JSON 文件'
+    return
+  }
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const content = e.target?.result as string
+      // 验证是否为有效的 JSON
+      JSON.parse(content)
+      fclInput.value = content
+      inputError.value = ''
+    } catch (error) {
+      inputError.value = '文件格式错误：不是有效的 JSON 文件'
+    }
+  }
+  
+  reader.onerror = () => {
+    inputError.value = '文件读取失败'
+  }
+  
+  reader.readAsText(file)
 }
 
 function loadExample() {
