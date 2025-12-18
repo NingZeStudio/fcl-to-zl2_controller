@@ -82,6 +82,14 @@ export const FCL_TO_GLFW_KEYMAP: Record<number, string> = {
   1004: 'launcher.event.scroll_down',
 }
 
+// FCL 特殊事件到 ZL2 启动器事件的映射
+export const FCL_SPECIAL_EVENTS: Record<string, string> = {
+  'switch_ime': 'launcher.event.switch_ime',
+  'switch_menu': 'launcher.event.switch_menu',
+  'switch_touch_mode': 'launcher.event.switch_menu',
+  'open_menu': 'launcher.event.switch_menu',
+}
+
 // 安全的 ZL2 颜色值
 // 注意：这些值必须作为字符串存储，因为 JavaScript Number 无法精确表示
 export const SAFE_ZL2_COLORS = {

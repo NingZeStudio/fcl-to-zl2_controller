@@ -7,13 +7,18 @@ import type {
   ZL2ClickEvent,
   ZL2TranslatableString
 } from '@/types/zl2'
-import { FCL_TO_GLFW_KEYMAP, SAFE_ZL2_COLORS } from './keymap'
+import { FCL_TO_GLFW_KEYMAP, SAFE_ZL2_COLORS, FCL_SPECIAL_EVENTS } from './keymap'
 
 export class FCLToZL2Converter {
   private styleMap: Map<string, string> = new Map()
+  private layerMap: Map<string, string> = new Map()
 
   convert(fclController: FCLController): ZL2ControlLayout {
     this.styleMap.clear()
+    this.layerMap.clear()
+
+    // 第一步：建立层级映射
+    this.buildLayerMapping(fclController)
 
     return {
       info: this.convertInfo(fclController),
@@ -21,6 +26,15 @@ export class FCLToZL2Converter {
       styles: this.convertStyles(fclController),
       editorVersion: 4
     }
+  }
+
+  private buildLayerMapping(fcl: FCLController): void {
+    // 为每个视图组生成 UUID 并建立映射
+    fcl.viewGroups.forEach(group => {
+      const layerUuid = this.generateUUID()
+      this.layerMap.set(group.id, layerUuid)
+      console.log(`Layer mapping: ${group.id} -> ${layerUuid}`)
+    })
   }
 
   private convertInfo(fcl: FCLController): ZL2ControlLayout['info'] {
@@ -41,19 +55,24 @@ export class FCLToZL2Converter {
   }
 
   private convertLayers(fcl: FCLController): ZL2Layer[] {
-    return fcl.viewGroups.map(group => ({
-      name: group.name,
-      uuid: this.generateUUID(),
-      hide: group.visibility === 'INVISIBLE',
-      hideWhenMouse: false,
-      hideWhenGamepad: false,
-      visibilityType: 'always',
-      normalButtons: [
-        ...group.viewData.buttonList.map(btn => this.convertButton(btn)),
-        ...this.convertDirectionsToButtons(group.viewData.directionList)
-      ],
-      textBoxes: []
-    }))
+    return fcl.viewGroups.map(group => {
+      // 使用预先建立的映射
+      const layerUuid = this.layerMap.get(group.id)!
+      
+      return {
+        name: group.name,
+        uuid: layerUuid,
+        hide: group.visibility === 'INVISIBLE',
+        hideWhenMouse: false,
+        hideWhenGamepad: false,
+        visibilityType: 'always',
+        normalButtons: [
+          ...group.viewData.buttonList.map(btn => this.convertButton(btn)),
+          ...this.convertDirectionsToButtons(group.viewData.directionList)
+        ],
+        textBoxes: []
+      }
+    })
   }
 
   private convertButton(fclBtn: FCLButton): ZL2NormalButton {
@@ -119,10 +138,46 @@ export class FCLToZL2Converter {
   private convertButtonEvents(event: FCLButton['event']): ZL2ClickEvent[] {
     const events: ZL2ClickEvent[] = []
 
-    // 处理按下事件（最常用）
-    const pressEvent = event.pressEvent
-    if (pressEvent.outputKeycodes.length > 0) {
-      pressEvent.outputKeycodes.forEach(keycode => {
+    // 处理所有事件类型，合并所有有效事件
+    const eventTypes = [
+      { data: event.pressEvent, priority: 1 },
+      { data: event.clickEvent, priority: 2 },
+      { data: event.longPressEvent, priority: 3 },
+      { data: event.doubleClickEvent, priority: 4 }
+    ]
+
+    // 找到优先级最高的有效事件
+    let selectedEvent = null
+    let highestPriority = 999
+
+    for (const eventType of eventTypes) {
+      if (!eventType.data) continue
+      
+      const hasContent = (
+        (eventType.data.outputKeycodes && eventType.data.outputKeycodes.length > 0) ||
+        (eventType.data.outputText && eventType.data.outputText.trim()) ||
+        (eventType.data.bindViewGroup && eventType.data.bindViewGroup.length > 0) ||
+        eventType.data.input ||
+        eventType.data.quickInput ||
+        eventType.data.switchTouchMode ||
+        eventType.data.switchMouseMode ||
+        eventType.data.openMenu
+      )
+
+      if (hasContent && eventType.priority < highestPriority) {
+        selectedEvent = eventType.data
+        highestPriority = eventType.priority
+      }
+    }
+
+    if (!selectedEvent) return events
+
+    // 处理选中的事件
+    const eventData = selectedEvent
+
+    // 处理键码输出
+    if (eventData.outputKeycodes && eventData.outputKeycodes.length > 0) {
+      eventData.outputKeycodes.forEach(keycode => {
         const glfwKey = this.convertKeycode(keycode)
         if (glfwKey) {
           events.push({
@@ -133,21 +188,62 @@ export class FCLToZL2Converter {
       })
     }
 
+    // 处理输入相关事件
+    if (eventData.input || eventData.quickInput) {
+      events.push({
+        type: 'launcher_event',
+        key: FCL_SPECIAL_EVENTS.switch_ime
+      })
+    }
+
     // 处理文本输出
-    if (pressEvent.outputText) {
+    if (eventData.outputText && eventData.outputText.trim()) {
       events.push({
         type: 'send_text',
-        key: pressEvent.outputText
+        key: eventData.outputText
       })
     }
 
     // 处理视图组切换
-    if (pressEvent.bindViewGroup.length > 0) {
-      pressEvent.bindViewGroup.forEach(groupId => {
-        events.push({
-          type: 'switch_layer',
-          key: groupId
-        })
+    if (eventData.bindViewGroup && eventData.bindViewGroup.length > 0) {
+      eventData.bindViewGroup.forEach(groupId => {
+        // 使用映射的 ZL2 层 UUID，如果找不到映射则使用原 ID
+        const zl2LayerUuid = this.layerMap.get(groupId)
+        if (zl2LayerUuid) {
+          events.push({
+            type: 'switch_layer',
+            key: zl2LayerUuid
+          })
+        } else {
+          // 如果找不到映射，可能是外部引用，保持原 ID
+          console.warn(`Layer mapping not found for group ID: ${groupId}`)
+          events.push({
+            type: 'switch_layer',
+            key: groupId
+          })
+        }
+      })
+    }
+
+    // 处理特殊启动器事件
+    if (eventData.switchTouchMode) {
+      events.push({
+        type: 'launcher_event',
+        key: FCL_SPECIAL_EVENTS.switch_touch_mode
+      })
+    }
+
+    if (eventData.switchMouseMode) {
+      events.push({
+        type: 'launcher_event',
+        key: FCL_SPECIAL_EVENTS.switch_menu
+      })
+    }
+
+    if (eventData.openMenu) {
+      events.push({
+        type: 'launcher_event',
+        key: FCL_SPECIAL_EVENTS.open_menu
       })
     }
 
