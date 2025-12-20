@@ -11,17 +11,17 @@
             {{ conversionMode === 'fcl-to-zl2' ? '将 Fold Craft Launcher 控件配置转换为 ZalithLauncher 2 格式' : '将 ZalithLauncher 2 控件配置转换为 Fold Craft Launcher 格式' }}
           </p>
         </div>
-        <div class="flex bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+        <div class="flex w-full md:w-auto bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
           <button 
             @click="conversionMode = 'fcl-to-zl2'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            class="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors"
             :class="conversionMode === 'fcl-to-zl2' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
           >
             FCL → ZL2
           </button>
           <button 
             @click="conversionMode = 'zl2-to-fcl'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            class="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors"
             :class="conversionMode === 'zl2-to-fcl' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
           >
             ZL2 → FCL
@@ -70,7 +70,7 @@
             <Textarea
               v-model="inputContent"
               :placeholder='conversionMode === "fcl-to-zl2" ? "粘贴 FCL JSON 配置，或拖拽 JSON 文件到此处..." : "粘贴 ZL2 JSON 配置，或拖拽 JSON 文件到此处..."'
-              class="font-mono text-xs h-[500px]"
+              class="font-mono text-xs h-[350px] md:h-[500px]"
               :class="{ 'border-red-500': inputError, 'border-blue-500 bg-blue-50 dark:bg-blue-950': isDragOver }"
               @dragover="isDragOver = true"
               @dragleave="isDragOver = false"
@@ -81,16 +81,16 @@
             {{ inputError }}
           </div>
 
-          <div class="mt-4 flex gap-2">
-            <Button @click="loadExample" variant="outline" size="sm" class="flex items-center gap-2">
+          <div class="mt-4 flex flex-wrap gap-2">
+            <Button @click="loadExample" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
               <FileText class="h-4 w-4" />
-              加载示例
+              示例
             </Button>
-            <Button @click="triggerFileInput" variant="outline" size="sm" class="flex items-center gap-2">
+            <Button @click="triggerFileInput" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
               <FileInput class="h-4 w-4" />
-              导入文件
+              导入
             </Button>
-            <Button @click="clearInput" variant="ghost" size="sm" class="flex items-center gap-2">
+            <Button @click="clearInput" variant="ghost" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
               <X class="h-4 w-4" />
               清空
             </Button>
@@ -121,13 +121,13 @@
           <Textarea
             v-model="outputContent"
             placeholder="转换结果将显示在这里..."
-            class="font-mono text-xs h-[500px]"
+            class="font-mono text-xs h-[350px] md:h-[500px]"
             readonly
           />
 
           <div v-if="conversionStats" class="mt-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-md text-sm">
             <div class="font-semibold mb-1 text-slate-900 dark:text-white">转换统计</div>
-            <div class="space-y-1 text-slate-700 dark:text-slate-300">
+            <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-4 gap-y-1 text-slate-700 dark:text-slate-300">
               <div>• 控件层: {{ conversionStats.layers }}</div>
               <div>• 按钮: {{ conversionStats.buttons }}</div>
               <div v-if="conversionStats.directions > 0">• 方向键: {{ conversionStats.directions }}</div>
@@ -135,14 +135,14 @@
             </div>
           </div>
 
-          <div class="mt-4 flex gap-2">
-            <Button @click="copyOutput" variant="default" size="sm" class="flex items-center gap-2" :disabled="!outputContent">
+          <div class="mt-4 flex flex-wrap gap-2">
+            <Button @click="copyOutput" variant="default" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2" :disabled="!outputContent">
               <Copy class="h-4 w-4" />
-              复制结果
+              复制
             </Button>
-            <Button @click="downloadOutput" variant="outline" size="sm" class="flex items-center gap-2" :disabled="!outputContent">
+            <Button @click="downloadOutput" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2" :disabled="!outputContent">
               <Download class="h-4 w-4" />
-              下载 JSON
+              下载
             </Button>
           </div>
         </Card>
@@ -153,7 +153,7 @@
         <Button 
           @click="convert" 
           size="lg" 
-          class="px-8 py-6 text-lg"
+          class="w-full md:w-auto px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
           :disabled="!inputContent || converting"
         >
           <ArrowRight class="h-5 w-5 mr-2" />
