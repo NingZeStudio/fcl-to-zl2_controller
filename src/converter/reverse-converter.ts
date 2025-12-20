@@ -166,20 +166,34 @@ export class ZL2ToFCLConverter {
   }
 
   private convertStyles(zl2Styles: ZL2ButtonStyle[]): FCLButtonStyle[] {
-    return zl2Styles.map(style => ({
-      name: style.uuid,
-      textColor: -1, // 默认白色
-      textSize: 12,
-      strokeWidth: 2,
-      strokeColor: -1,
-      cornerRadius: 4,
-      fillColor: 0,
-      textColorPressed: -1,
-      textSizePressed: 12,
-      strokeWidthPressed: 2,
-      strokeColorPressed: -1,
-      cornerRadiusPressed: 4,
-      fillColorPressed: 0
-    }))
+    return zl2Styles.map(style => {
+      const config = style.lightStyle
+      return {
+        name: style.uuid,
+        textColor: this.convertColor(config.contentColor),
+        textSize: config.fontSize || 12,
+        strokeWidth: (config.borderWidth || 0) * 10,
+        strokeColor: this.convertColor(config.borderColor),
+        cornerRadius: (config.borderRadius?.topStart || 0) * 10,
+        fillColor: this.convertColor(config.backgroundColor),
+        textColorPressed: this.convertColor(config.pressedContentColor),
+        textSizePressed: config.pressedFontSize || 12,
+        strokeWidthPressed: (config.pressedBorderWidth || 0) * 10,
+        strokeColorPressed: this.convertColor(config.pressedBorderColor),
+        cornerRadiusPressed: (config.pressedBorderRadius?.topStart || 0) * 10,
+        fillColorPressed: this.convertColor(config.pressedBackgroundColor)
+      }
+    })
+  }
+
+  private convertColor(zl2Color: string): number {
+    try {
+      // ZL2 颜色是 Long 字符串，高 32 位是 ARGB
+      // FCL 颜色是 32 位 ARGB 整数
+      return Number(BigInt(zl2Color) >> 32n)
+    } catch (e) {
+      // 默认返回白色或透明
+      return -1
+    }
   }
 }
