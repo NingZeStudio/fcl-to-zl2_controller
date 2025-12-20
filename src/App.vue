@@ -293,6 +293,8 @@ function convert() {
 
       currentId.value = zl2Layout.info.name.default.toLowerCase().replace(/\s+/g, '_') || 'converted_fcl'
       const fclController = zl2ToFcl.convert(zl2Layout)
+      // 使用生成的 FCL ID 作为下载文件名的一部分
+      currentId.value = fclController.id
       outputContent.value = JSON.stringify(fclController, null, 2)
 
       // 统计信息

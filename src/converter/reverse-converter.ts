@@ -5,7 +5,7 @@ import type {
   FCLButtonStyle,
   FCLBaseInfo,
   FCLButtonEvent,
-  FCLEventData
+  FCLEvent
 } from '@/types/fcl'
 import type { 
   ZL2ControlLayout, 
@@ -19,6 +19,8 @@ import { FCL_TO_GLFW_KEYMAP, FCL_SPECIAL_EVENTS } from './keymap'
 export class ZL2ToFCLConverter {
   private glfwToFclKeymap: Record<string, number> = {}
   private specialToFclEvent: Record<string, string> = {}
+  private styleIdMap: Map<string, string> = new Map() // ZL2 UUID -> FCL Name
+  private viewGroupIdMap: Map<string, string> = new Map() // ZL2 UUID -> FCL ID
 
   constructor() {
     // 初始化反向键码映射
@@ -33,28 +35,73 @@ export class ZL2ToFCLConverter {
   }
 
   convert(zl2Layout: ZL2ControlLayout): FCLController {
+    // 1. 初始化映射
+    this.styleIdMap.clear()
+    this.viewGroupIdMap.clear()
+    this.initializeStyleMap(zl2Layout.styles)
+    this.initializeViewGroupMap(zl2Layout.layers)
+
+    // 2. 转换层和按钮
+    const viewGroups = this.convertLayers(zl2Layout.layers)
+
     return {
-      id: zl2Layout.info.name.default.toLowerCase().replace(/\s+/g, '_') || 'converted_fcl',
+      id: this.generateFclId(),
       name: zl2Layout.info.name.default,
       version: zl2Layout.info.versionName,
       versionCode: zl2Layout.info.versionCode,
       author: zl2Layout.info.author.default,
       description: zl2Layout.info.description.default,
       controllerVersion: 3,
-      buttonStyles: this.convertStyles(zl2Layout.styles),
-      directionStyles: [], // ZL2 没有专门的方向键样式
-      viewGroups: this.convertLayers(zl2Layout.layers)
+      buttonStyles: this.convertStyles(zl2Layout.styles, zl2Layout.layers),
+      directionStyles: [],
+      viewGroups: viewGroups
     }
+  }
+
+  private initializeViewGroupMap(layers: ZL2Layer[]) {
+    layers.forEach(layer => {
+      this.viewGroupIdMap.set(layer.uuid, this.generateFclId())
+    })
+  }
+
+  private initializeStyleMap(zl2Styles: ZL2ButtonStyle[]) {
+    // 处理内置样式映射 (保持与 converter.ts 一致)
+    const builtInStyles: Record<string, string> = {
+      '21b054786830': '右上圆角',
+      '43f4fb63f80a': '左上圆角',
+      '0fa337d97f90': '右下圆角',
+      'a5824dc0029d': '左下圆角',
+      'd8cd25b80d5d': '右边圆角',
+      'ea3ab7bc621f': '左边圆角',
+      'cac8c754ffa0': '全圆角',
+      'd1096cf91caa': '默认样式'
+    }
+
+    Object.entries(builtInStyles).forEach(([uuid, name]) => {
+      this.styleIdMap.set(uuid, name)
+    })
+
+    // 处理布局中的自定义样式
+    zl2Styles.forEach(style => {
+      // 如果不是内置样式，则优先使用 ZL2 中的名称
+      if (!builtInStyles[style.uuid]) {
+        const name = style.name || `样式_${style.uuid.substring(0, 4)}`
+        this.styleIdMap.set(style.uuid, name)
+      }
+    })
+  }
+
+  private generateFclId(): string {
+    // FCL 通常使用 8 位随机字符串
+    return Math.random().toString(36).substring(2, 10)
   }
 
   private convertLayers(layers: ZL2Layer[]): FCLViewGroup[] {
     return layers.map(layer => ({
-      id: layer.uuid,
+      id: this.viewGroupIdMap.get(layer.uuid) || this.generateFclId(),
       name: layer.name,
       visibility: layer.hide ? 'INVISIBLE' : 'VISIBLE',
       viewData: {
-        // 遵从用户反馈：ZL2 的所有按钮统一转为 FCL 的 buttonList。
-        // 不尝试自动识别/转换方向盘（directionList），因为系统自动判断效果较差且不灵活。
         buttonList: layer.normalButtons.map(btn => this.convertButton(btn)),
         directionList: []
       }
@@ -63,12 +110,17 @@ export class ZL2ToFCLConverter {
 
   private convertButton(zl2Btn: ZL2NormalButton): FCLButton {
     return {
-      id: zl2Btn.uuid,
+      id: this.generateFclId(),
       text: zl2Btn.text.default,
-      style: zl2Btn.buttonStyle || 'default',
+      style: this.getFclStyleName(zl2Btn.buttonStyle),
       baseInfo: this.convertBaseInfo(zl2Btn),
       event: this.convertEvents(zl2Btn)
     }
+  }
+
+  private getFclStyleName(zl2StyleId: string | null): string {
+    if (!zl2StyleId) return '默认样式'
+    return this.styleIdMap.get(zl2StyleId) || `样式_${zl2StyleId.substring(0, 4)}`
   }
 
   private convertBaseInfo(zl2Btn: ZL2NormalButton): FCLBaseInfo {
@@ -106,26 +158,41 @@ export class ZL2ToFCLConverter {
   }
 
   private convertEvents(zl2Btn: ZL2NormalButton): FCLButtonEvent {
-    const pressEvent: FCLEventData = {
+    const emptyEvent = (): FCLEvent => ({
+      autoKeep: false,
+      autoClick: false,
+      openMenu: false,
+      switchTouchMode: false,
+      switchMouseMode: false,
+      input: false,
+      quickInput: false,
+      outputText: '',
       outputKeycodes: [],
-      bindViewGroup: [],
-      autoKeep: zl2Btn.isToggleable,
-      pointerFollow: zl2Btn.isPenetrable
-    }
+      bindViewGroup: []
+    })
+
+    const pressEvent = emptyEvent()
+    pressEvent.autoKeep = zl2Btn.isToggleable
 
     zl2Btn.clickEvents.forEach(event => {
       switch (event.type) {
         case 'key':
           const fclKey = this.glfwToFclKeymap[event.key]
           if (fclKey !== undefined) {
-            pressEvent.outputKeycodes!.push(fclKey)
+            pressEvent.outputKeycodes.push(fclKey)
           }
           break
         case 'launcher_event':
           this.handleLauncherEvent(event.key, pressEvent)
           break
         case 'switch_layer':
-          pressEvent.bindViewGroup!.push(event.key)
+          const fclLayerId = this.viewGroupIdMap.get(event.key)
+          if (fclLayerId) {
+            pressEvent.bindViewGroup.push(fclLayerId)
+          } else {
+            // 如果找不到映射，可能是外部引用或直接使用的 ID
+            pressEvent.bindViewGroup.push(event.key)
+          }
           break
         case 'send_text':
           pressEvent.outputText = event.key
@@ -135,11 +202,15 @@ export class ZL2ToFCLConverter {
 
     return {
       pressEvent,
-      pointerFollow: zl2Btn.isPenetrable
+      longPressEvent: emptyEvent(),
+      clickEvent: emptyEvent(),
+      doubleClickEvent: emptyEvent(),
+      pointerFollow: zl2Btn.isPenetrable,
+      Movable: false
     }
   }
 
-  private handleLauncherEvent(zl2Event: string, eventData: FCLEventData) {
+  private handleLauncherEvent(zl2Event: string, eventData: FCLEvent) {
     const fclSpecial = this.specialToFclEvent[zl2Event]
     if (fclSpecial) {
       switch (fclSpecial) {
@@ -160,16 +231,16 @@ export class ZL2ToFCLConverter {
       // 如果是滚动事件等，可能在 keymap 中
       const fclKey = this.glfwToFclKeymap[zl2Event]
       if (fclKey !== undefined) {
-        eventData.outputKeycodes!.push(fclKey)
+        eventData.outputKeycodes.push(fclKey)
       }
     }
   }
 
-  private convertStyles(zl2Styles: ZL2ButtonStyle[]): FCLButtonStyle[] {
-    return zl2Styles.map(style => {
+  private convertStyles(zl2Styles: ZL2ButtonStyle[], layers: ZL2Layer[]): FCLButtonStyle[] {
+    const fclStyles: FCLButtonStyle[] = zl2Styles.map(style => {
       const config = style.lightStyle
       return {
-        name: style.uuid,
+        name: this.getFclStyleName(style.uuid),
         textColor: this.convertColor(config.contentColor),
         textSize: config.fontSize || 12,
         strokeWidth: (config.borderWidth || 0) * 10,
@@ -184,13 +255,59 @@ export class ZL2ToFCLConverter {
         fillColorPressed: this.convertColor(config.pressedBackgroundColor)
       }
     })
+
+    // 收集所有被按钮引用的样式名称
+    const referencedStyleNames = new Set<string>()
+    layers.forEach(layer => {
+      layer.normalButtons.forEach(btn => {
+        referencedStyleNames.add(this.getFclStyleName(btn.buttonStyle))
+      })
+    })
+
+    // 确保所有引用的样式都在 buttonStyles 中
+    referencedStyleNames.forEach(name => {
+      if (!fclStyles.some(s => s.name === name)) {
+        fclStyles.push(this.createDefaultFclStyle(name))
+      }
+    })
+
+    // 确保“默认样式”始终存在
+    if (!fclStyles.some(s => s.name === '默认样式')) {
+      fclStyles.push(this.createDefaultFclStyle('默认样式'))
+    }
+
+    return fclStyles
+  }
+
+  private createDefaultFclStyle(name: string): FCLButtonStyle {
+    // 根据名称尝试猜测一些基本样式
+    let cornerRadius = 10
+    if (name.includes('左上')) cornerRadius = 100 // 假设圆角按钮
+    if (name.includes('右上')) cornerRadius = 100
+    
+    return {
+      name: name,
+      textColor: -1,
+      textSize: 12,
+      strokeWidth: 10,
+      strokeColor: -12303292,
+      cornerRadius: cornerRadius,
+      fillColor: 0,
+      textColorPressed: -1,
+      textSizePressed: 12,
+      strokeWidthPressed: 10,
+      strokeColorPressed: -12303292,
+      cornerRadiusPressed: cornerRadius,
+      fillColorPressed: -3355444
+    }
   }
 
   private convertColor(zl2Color: string): number {
     try {
       // ZL2 颜色是 Long 字符串，高 32 位是 ARGB
-      // FCL 颜色是 32 位 ARGB 整数
-      return Number(BigInt(zl2Color) >> 32n)
+      // FCL 颜色是 32 位有符号 ARGB 整数
+      const argb = BigInt(zl2Color) >> 32n
+      return Number(BigInt.asIntN(32, argb))
     } catch (e) {
       // 默认返回白色或透明
       return -1
