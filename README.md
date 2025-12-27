@@ -1,5 +1,9 @@
 # FCL 到 ZL2 控件转换器
 
+## 🌐 在线使用
+
+**立即访问**: [https://ftzc.lemwood.cn/](https://ftzc.lemwood.cn/)
+
 一个基于 Vue 3 + TypeScript + Vite 的 Web 应用，用于将 Fold Craft Launcher (FCL) 控件配置转换为 ZalithLauncher 2 (ZL2) 格式。
 
 ## 功能特性
@@ -11,43 +15,6 @@
 - ✅ 实时转换预览
 - ✅ 一键复制/下载结果
 - ✅ 响应式设计，支持移动端
-
-## 技术栈
-
-- **框架**: Vue 3 (Composition API)
-- **语言**: TypeScript
-- **构建工具**: Vite
-- **UI 库**: shadcn-vue (基于 Radix Vue)
-- **样式**: Tailwind CSS
-- **图标**: Lucide Icons
-
-## 快速开始
-
-### 安装依赖
-
-```bash
-npm install
-```
-
-### 开发模式
-
-```bash
-npm run dev
-```
-
-访问 http://localhost:5173
-
-### 构建生产版本
-
-```bash
-npm run build
-```
-
-### 预览生产版本
-
-```bash
-npm run preview
-```
 
 ## 使用说明
 
@@ -90,57 +57,3 @@ FCL 的方向键控件会被转换为 8 个独立按钮：
 - 背景色: `-9223372036854775808` (半透明黑)
 - 按下背景: `-5510004026390872064` (灰色)
 - 文字/边框: `-4294967296` (白色)
-
-## 项目结构
-
-```
-├── src/
-│   ├── components/       # UI 组件
-│   │   ├── Alert.vue
-│   │   ├── Button.vue
-│   │   ├── Card.vue
-│   │   └── Textarea.vue
-│   ├── converter/        # 转换逻辑
-│   │   ├── converter.ts  # 主转换器
-│   │   └── keymap.ts     # 键码映射
-│   ├── types/            # 类型定义
-│   │   ├── fcl.ts        # FCL 类型
-│   │   └── zl2.ts        # ZL2 类型
-│   ├── lib/              # 工具函数
-│   │   └── utils.ts
-│   ├── App.vue           # 主应用
-│   ├── main.ts           # 入口文件
-│   └── style.css         # 全局样式
-├── fcl控件文档/          # FCL 文档
-├── zl2控件文档/          # ZL2 文档
-└── package.json
-```
-
-## 注意事项
-
-⚠️ **重要警告**
-
-1. **颜色值格式**: 转换器已修复大整数精度问题，输出的颜色值为正确的数字格式（无引号）。
-
-2. **刷新页面**: 如果遇到导入错误，请刷新浏览器页面（Ctrl + F5）确保使用最新版本。
-
-3. **测试验证**: 转换后请在 ZL2 中测试配置，确保所有按钮功能正常。
-
-4. **备份原文件**: 转换前建议备份原 FCL 配置。
-
-5. **兼容性**: 转换器基于 ZL2 Editor Version 4 开发。
-
-## 开发文档
-
-详细的控件系统文档：
-- [FCL 控件系统开发文档](./fcl控件文档/FCL控件系统开发文档.md)
-- [ZL2 控件系统开发文档](./zl2控件文档/ZL2控件系统开发文档.md)
-- [ZL2 颜色值安全指南](./zl2控件文档/快速参考-颜色值安全指南.md)
-
-## License
-
-MIT
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
