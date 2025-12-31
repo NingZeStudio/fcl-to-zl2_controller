@@ -149,16 +149,32 @@
       </div>
 
       <!-- 转换按钮 -->
-      <div class="mt-6 text-center">
+      <div class="mt-6 flex flex-col items-center gap-4">
         <Button 
           @click="convert" 
           size="lg" 
-          class="w-full md:w-auto px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
+          class="w-full md:w-auto px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all relative overflow-hidden"
           :disabled="!inputContent || converting"
         >
-          <ArrowRight class="h-5 w-5 mr-2" />
+          <div v-if="converting" class="absolute inset-0 bg-blue-600/20 animate-pulse"></div>
+          <ArrowRight v-if="!converting" class="h-5 w-5 mr-2" />
+          <Loader2 v-else class="h-5 w-5 mr-2 animate-spin" />
           {{ converting ? '转换中...' : '开始转换' }}
         </Button>
+        
+        <transition
+          enter-active-class="transition duration-300 ease-out"
+          enter-from-class="transform scale-95 opacity-0"
+          enter-to-class="transform scale-100 opacity-100"
+          leave-active-class="transition duration-200 ease-in"
+          leave-from-class="transform scale-100 opacity-100"
+          leave-to-class="transform scale-95 opacity-0"
+        >
+          <div v-if="showSuccess" class="text-green-600 dark:text-green-400 flex items-center gap-2 font-medium">
+            <CheckCircle2 class="h-5 w-5" />
+            转换成功！
+          </div>
+        </transition>
       </div>
 
       <!-- 使用说明 -->
@@ -216,7 +232,9 @@ import {
   Copy, 
   Download,
   FileText,
-  X
+  X,
+  Loader2,
+  CheckCircle2
 } from 'lucide-vue-next'
 import Card from './components/Card.vue'
 import Button from './components/Button.vue'
@@ -231,6 +249,7 @@ const inputContent = ref('')
 const outputContent = ref('')
 const inputError = ref('')
 const converting = ref(false)
+const showSuccess = ref(false)
 const fileInputRef = ref<HTMLInputElement>()
 const currentId = ref('')
 const isDragOver = ref(false)
@@ -313,6 +332,12 @@ function convert() {
     inputError.value = error instanceof Error ? error.message : '转换失败'
   } finally {
     converting.value = false
+    if (!inputError.value) {
+      showSuccess.value = true
+      setTimeout(() => {
+        showSuccess.value = false
+      }, 3000)
+    }
   }
 }
 

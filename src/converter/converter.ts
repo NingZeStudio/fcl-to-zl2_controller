@@ -9,6 +9,17 @@ import type {
 } from '@/types/zl2'
 import { FCL_TO_GLFW_KEYMAP, SAFE_ZL2_COLORS, FCL_SPECIAL_EVENTS } from './keymap'
 
+// ZL2 布局安全限制常量 (参考 ZL2 控件系统开发文档)
+const ZL2_LIMITS = {
+  MIN_PERCENTAGE: 500,  // 最小百分比 5% (文档规定 500-10000)
+  MIN_DP: 5,            // 最小 DP 尺寸
+  MAX_COORD: 10000,     // 最大坐标值
+  MIN_COORD: 0,         // 最小坐标值
+  FONT_SIZE: { MIN: 2, MAX: 30 },
+  BORDER_WIDTH: { MIN: 0, MAX: 50 },
+  ALPHA: { MIN: 0.0, MAX: 1.0 }
+}
+
 export class FCLToZL2Converter {
   private styleMap: Map<string, string> = new Map()
   private layerMap: Map<string, string> = new Map()
@@ -24,6 +35,18 @@ export class FCLToZL2Converter {
       info: this.convertInfo(fclController),
       layers: this.convertLayers(fclController),
       styles: this.convertStyles(fclController),
+      special: {
+        defaultJoystickStyle: {
+          alpha: 1.0,
+          backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
+          joystickColor: SAFE_ZL2_COLORS.WHITE,
+          joystickCanLockColor: SAFE_ZL2_COLORS.GRAY,
+          joystickLockedColor: SAFE_ZL2_COLORS.WHITE,
+          backgroundShape: 50,
+          joystickShape: 50,
+          joystickSize: 0.5
+        }
+      },
       editorVersion: 4
     }
   }
@@ -70,9 +93,31 @@ export class FCLToZL2Converter {
           ...group.viewData.buttonList.map(btn => this.convertButton(btn)),
           ...this.convertDirectionsToButtons(group.viewData.directionList)
         ],
-        textBoxes: []
+        textBoxes: group.viewData.buttonList
+          .filter(btn => btn.text && btn.text.startsWith('T:')) // 假设以 T: 开头的按钮转换为文本框
+          .map(btn => this.convertButtonToTextBox(btn))
       }
     })
+  }
+
+  private convertButtonToTextBox(fclBtn: FCLButton): ZL2TextBox {
+    const baseInfo = fclBtn.baseInfo
+    const text = fclBtn.text.startsWith('T:') ? fclBtn.text.substring(2) : fclBtn.text
+    return {
+      text: this.createTranslatableString(text),
+      uuid: this.generateUUID(),
+      position: {
+        x: this.clampCoord(Math.round(baseInfo.xPosition * 10)),
+        y: this.clampCoord(Math.round(baseInfo.yPosition * 10))
+      },
+      buttonSize: this.convertButtonSize(baseInfo),
+      buttonStyle: this.getStyleUUID(fclBtn.style),
+      textAlignment: 'Center',
+      textBold: false,
+      textItalic: false,
+      textUnderline: false,
+      visibilityType: this.convertVisibilityType(baseInfo.visibilityType)
+    }
   }
 
   private convertButton(fclBtn: FCLButton): ZL2NormalButton {
@@ -82,8 +127,8 @@ export class FCLToZL2Converter {
       text: this.createTranslatableString(fclBtn.text),
       uuid: this.generateUUID(),
       position: {
-        x: Math.round(baseInfo.xPosition * 10), // FCL: 500 = 50%, ZL2: 5000 = 50%
-        y: Math.round(baseInfo.yPosition * 10)
+        x: this.clampCoord(Math.round(baseInfo.xPosition * 10)), // FCL: 500 = 50%, ZL2: 5000 = 50%
+        y: this.clampCoord(Math.round(baseInfo.yPosition * 10))
       },
       buttonSize: this.convertButtonSize(baseInfo),
       buttonStyle: this.getStyleUUID(fclBtn.style),
@@ -103,8 +148,8 @@ export class FCLToZL2Converter {
     if (baseInfo.sizeType === 'ABSOLUTE') {
       return {
         type: 'dp',
-        widthDp: baseInfo.absoluteWidth || 50,
-        heightDp: baseInfo.absoluteHeight || 50,
+        widthDp: Math.max(ZL2_LIMITS.MIN_DP, baseInfo.absoluteWidth || 50),
+        heightDp: Math.max(ZL2_LIMITS.MIN_DP, baseInfo.absoluteHeight || 50),
         widthPercentage: 500,
         heightPercentage: 500,
         widthReference: 'screen_height',
@@ -120,11 +165,15 @@ export class FCLToZL2Converter {
       type: 'percentage',
       widthDp: 50,
       heightDp: 50,
-      widthPercentage: Math.round(widthSize * 10), // FCL: 50 = 5%, ZL2: 500 = 5%
-      heightPercentage: Math.round(heightSize * 10),
+      widthPercentage: Math.max(ZL2_LIMITS.MIN_PERCENTAGE, Math.round(widthSize * 10)), // FCL: 50 = 5%, ZL2: 500 = 5%
+      heightPercentage: Math.max(ZL2_LIMITS.MIN_PERCENTAGE, Math.round(heightSize * 10)),
       widthReference: baseInfo.percentageWidth?.reference === 'SCREEN_WIDTH' ? 'screen_width' : 'screen_height',
       heightReference: baseInfo.percentageHeight?.reference === 'SCREEN_WIDTH' ? 'screen_width' : 'screen_height'
     }
+  }
+
+  private clampCoord(val: number): number {
+    return Math.min(ZL2_LIMITS.MAX_COORD, Math.max(ZL2_LIMITS.MIN_COORD, val))
   }
 
   private convertVisibilityType(fclType: string): 'always' | 'in_game' | 'in_menu' {
@@ -431,16 +480,16 @@ export class FCLToZL2Converter {
 
     defaultStyles.forEach(styleConfig => {
       const baseStyle = {
-        alpha: 1.0,
-        pressedAlpha: 1.0,
+        alpha: this.clamp(1.0, ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
+        pressedAlpha: this.clamp(1.0, ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
         backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
         pressedBackgroundColor: SAFE_ZL2_COLORS.GRAY,
         contentColor: SAFE_ZL2_COLORS.WHITE,
         pressedContentColor: SAFE_ZL2_COLORS.WHITE,
         fontSize: null,
         pressedFontSize: null,
-        borderWidth: 0,
-        pressedBorderWidth: 0,
+        borderWidth: this.clamp(0, ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
+        pressedBorderWidth: this.clamp(0, ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
         borderColor: SAFE_ZL2_COLORS.WHITE,
         pressedBorderColor: SAFE_ZL2_COLORS.WHITE,
         borderRadius: styleConfig.borderRadius,
@@ -462,16 +511,16 @@ export class FCLToZL2Converter {
 
   private convertStyleConfig(fclStyle: FCLButtonStyle): ZL2ButtonStyle['lightStyle'] {
     return {
-      alpha: this.calculateAlpha(fclStyle.fillColor),
-      pressedAlpha: this.calculateAlpha(fclStyle.fillColorPressed),
+      alpha: this.clamp(this.calculateAlpha(fclStyle.fillColor), ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
+      pressedAlpha: this.clamp(this.calculateAlpha(fclStyle.fillColorPressed), ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
       backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
       pressedBackgroundColor: SAFE_ZL2_COLORS.GRAY,
       contentColor: SAFE_ZL2_COLORS.WHITE,
       pressedContentColor: SAFE_ZL2_COLORS.WHITE,
-      fontSize: fclStyle.textSize || null,
-      pressedFontSize: fclStyle.textSizePressed || null,
-      borderWidth: Math.round(fclStyle.strokeWidth / 10),
-      pressedBorderWidth: Math.round(fclStyle.strokeWidthPressed / 10),
+      fontSize: fclStyle.textSize ? this.clamp(fclStyle.textSize, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
+      pressedFontSize: fclStyle.textSizePressed ? this.clamp(fclStyle.textSizePressed, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
+      borderWidth: this.clamp(Math.round(fclStyle.strokeWidth / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
+      pressedBorderWidth: this.clamp(Math.round(fclStyle.strokeWidthPressed / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
       borderColor: SAFE_ZL2_COLORS.WHITE,
       pressedBorderColor: SAFE_ZL2_COLORS.WHITE,
       borderRadius: {
@@ -487,6 +536,10 @@ export class FCLToZL2Converter {
         bottomStart: fclStyle.cornerRadiusPressed / 10
       }
     }
+  }
+
+  private clamp(val: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, val))
   }
 
   private calculateAlpha(color: number): number {

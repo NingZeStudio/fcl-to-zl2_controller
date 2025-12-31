@@ -12,7 +12,8 @@ import type {
   ZL2Layer, 
   ZL2NormalButton, 
   ZL2ButtonStyle,
-  ZL2ClickEvent
+  ZL2ClickEvent,
+  ZL2TextBox
 } from '@/types/zl2'
 import { FCL_TO_GLFW_KEYMAP, FCL_SPECIAL_EVENTS } from './keymap'
 
@@ -102,10 +103,45 @@ export class ZL2ToFCLConverter {
       name: layer.name,
       visibility: layer.hide ? 'INVISIBLE' : 'VISIBLE',
       viewData: {
-        buttonList: layer.normalButtons.map(btn => this.convertButton(btn)),
+        buttonList: [
+          ...layer.normalButtons.map(btn => this.convertButton(btn)),
+          ...(layer.textBoxes || []).map(text => this.convertTextBox(text))
+        ],
         directionList: []
       }
     }))
+  }
+
+  private convertTextBox(zl2Text: ZL2TextBox): FCLButton {
+    return {
+      id: this.generateFclId(),
+      text: `T:${zl2Text.text.default}`, // 添加 T: 前缀以便识别
+      style: this.getFclStyleName(zl2Text.buttonStyle),
+      baseInfo: this.convertBaseInfo(zl2Text as any),
+      event: {
+        pressEvent: this.createEmptyEvent(),
+        longPressEvent: this.createEmptyEvent(),
+        clickEvent: this.createEmptyEvent(),
+        doubleClickEvent: this.createEmptyEvent(),
+        pointerFollow: false,
+        Movable: false
+      }
+    }
+  }
+
+  private createEmptyEvent(): FCLEvent {
+    return {
+      autoKeep: false,
+      autoClick: false,
+      openMenu: false,
+      switchTouchMode: false,
+      switchMouseMode: false,
+      input: false,
+      quickInput: false,
+      outputText: '',
+      outputKeycodes: [],
+      bindViewGroup: []
+    }
   }
 
   private convertButton(zl2Btn: ZL2NormalButton): FCLButton {
@@ -158,20 +194,7 @@ export class ZL2ToFCLConverter {
   }
 
   private convertEvents(zl2Btn: ZL2NormalButton): FCLButtonEvent {
-    const emptyEvent = (): FCLEvent => ({
-      autoKeep: false,
-      autoClick: false,
-      openMenu: false,
-      switchTouchMode: false,
-      switchMouseMode: false,
-      input: false,
-      quickInput: false,
-      outputText: '',
-      outputKeycodes: [],
-      bindViewGroup: []
-    })
-
-    const pressEvent = emptyEvent()
+    const pressEvent = this.createEmptyEvent()
     pressEvent.autoKeep = zl2Btn.isToggleable
 
     zl2Btn.clickEvents.forEach(event => {
@@ -202,9 +225,9 @@ export class ZL2ToFCLConverter {
 
     return {
       pressEvent,
-      longPressEvent: emptyEvent(),
-      clickEvent: emptyEvent(),
-      doubleClickEvent: emptyEvent(),
+      longPressEvent: this.createEmptyEvent(),
+      clickEvent: this.createEmptyEvent(),
+      doubleClickEvent: this.createEmptyEvent(),
       pointerFollow: zl2Btn.isPenetrable,
       Movable: false
     }
@@ -262,6 +285,11 @@ export class ZL2ToFCLConverter {
       layer.normalButtons.forEach(btn => {
         referencedStyleNames.add(this.getFclStyleName(btn.buttonStyle))
       })
+      if (layer.textBoxes) {
+        layer.textBoxes.forEach(text => {
+          referencedStyleNames.add(this.getFclStyleName(text.buttonStyle))
+        })
+      }
     })
 
     // 确保所有引用的样式都在 buttonStyles 中

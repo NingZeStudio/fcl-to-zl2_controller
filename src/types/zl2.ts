@@ -4,7 +4,23 @@ export interface ZL2ControlLayout {
   info: ZL2Info
   layers: ZL2Layer[]
   styles: ZL2ButtonStyle[]
+  special: ZL2SpecialConfig
   editorVersion: number
+}
+
+export interface ZL2SpecialConfig {
+  defaultJoystickStyle: ZL2JoystickStyle
+}
+
+export interface ZL2JoystickStyle {
+  alpha: number
+  backgroundColor: string
+  joystickColor: string
+  joystickCanLockColor: string
+  joystickLockedColor: string
+  backgroundShape: number
+  joystickShape: number
+  joystickSize: number
 }
 
 export interface ZL2Info {
@@ -31,7 +47,23 @@ export interface ZL2Layer {
   hideWhenGamepad: boolean
   visibilityType: 'always' | 'in_game' | 'in_menu'
   normalButtons: ZL2NormalButton[]
-  textBoxes: any[]
+  textBoxes: ZL2TextBox[]
+}
+
+export interface ZL2TextBox {
+  text: ZL2TranslatableString
+  uuid: string
+  position: {
+    x: number
+    y: number
+  }
+  buttonSize: ZL2ButtonSize
+  buttonStyle: string | null
+  textAlignment?: 'Start' | 'Center' | 'End'
+  textBold?: boolean
+  textItalic?: boolean
+  textUnderline?: boolean
+  visibilityType: 'always' | 'in_game' | 'in_menu'
 }
 
 export interface ZL2NormalButton {

@@ -93,7 +93,10 @@ export const FCL_SPECIAL_EVENTS: Record<string, string> = {
 // 安全的 ZL2 颜色值
 // 注意：这些值必须作为字符串存储，因为 JavaScript Number 无法精确表示
 export const SAFE_ZL2_COLORS = {
-  TRANSPARENT_BLACK: '-9223372036854775808',
-  GRAY: '-5510004026390872064',
-  WHITE: '-4294967296',
+  TRANSPARENT_BLACK: '-9223372036854775808', // 0x8000000000000000
+  GRAY: '-5510004026390872064',              // 0xB380808000000000
+  WHITE: '-4294967296',                     // 0xFFFFFFFF00000000
+  RED: '-4294967296',                       // 暂定红色，后续可按需调整
+  GREEN: '-4294967296',                     // 暂定绿色
+  BLUE: '-4294967296'                       // 暂定蓝色
 }
