@@ -59,13 +59,14 @@ export class ZL2ToFCLConverter {
     }
   }
 
-  private initializeViewGroupMap(layers: ZL2Layer[]) {
+  private initializeViewGroupMap(layers: ZL2Layer[] | undefined) {
+    if (!layers) return
     layers.forEach(layer => {
       this.viewGroupIdMap.set(layer.uuid, this.generateFclId())
     })
   }
 
-  private initializeStyleMap(zl2Styles: ZL2ButtonStyle[]) {
+  private initializeStyleMap(zl2Styles: ZL2ButtonStyle[] | undefined) {
     // 处理内置样式映射 (保持与 converter.ts 一致)
     const builtInStyles: Record<string, string> = {
       '21b054786830': '右上圆角',
@@ -83,13 +84,15 @@ export class ZL2ToFCLConverter {
     })
 
     // 处理布局中的自定义样式
-    zl2Styles.forEach(style => {
-      // 如果不是内置样式，则优先使用 ZL2 中的名称
-      if (!builtInStyles[style.uuid]) {
-        const name = style.name || `样式_${style.uuid.substring(0, 4)}`
-        this.styleIdMap.set(style.uuid, name)
-      }
-    })
+    if (zl2Styles) {
+      zl2Styles.forEach(style => {
+        // 如果不是内置样式，则优先使用 ZL2 中的名称
+        if (!builtInStyles[style.uuid]) {
+          const name = style.name || `样式_${style.uuid.substring(0, 4)}`
+          this.styleIdMap.set(style.uuid, name)
+        }
+      })
+    }
   }
 
   private generateFclId(): string {
@@ -97,14 +100,15 @@ export class ZL2ToFCLConverter {
     return Math.random().toString(36).substring(2, 10)
   }
 
-  private convertLayers(layers: ZL2Layer[]): FCLViewGroup[] {
+  private convertLayers(layers: ZL2Layer[] | undefined): FCLViewGroup[] {
+    if (!layers) return []
     return layers.map(layer => ({
       id: this.viewGroupIdMap.get(layer.uuid) || this.generateFclId(),
       name: layer.name,
       visibility: layer.hide ? 'INVISIBLE' : 'VISIBLE',
       viewData: {
         buttonList: [
-          ...layer.normalButtons.map(btn => this.convertButton(btn)),
+          ...(layer.normalButtons || []).map(btn => this.convertButton(btn)),
           ...(layer.textBoxes || []).map(text => this.convertTextBox(text))
         ],
         directionList: []
@@ -197,31 +201,33 @@ export class ZL2ToFCLConverter {
     const pressEvent = this.createEmptyEvent()
     pressEvent.autoKeep = zl2Btn.isToggleable
 
-    zl2Btn.clickEvents.forEach(event => {
-      switch (event.type) {
-        case 'key':
-          const fclKey = this.glfwToFclKeymap[event.key]
-          if (fclKey !== undefined) {
-            pressEvent.outputKeycodes.push(fclKey)
-          }
-          break
-        case 'launcher_event':
-          this.handleLauncherEvent(event.key, pressEvent)
-          break
-        case 'switch_layer':
-          const fclLayerId = this.viewGroupIdMap.get(event.key)
-          if (fclLayerId) {
-            pressEvent.bindViewGroup.push(fclLayerId)
-          } else {
-            // 如果找不到映射，可能是外部引用或直接使用的 ID
-            pressEvent.bindViewGroup.push(event.key)
-          }
-          break
-        case 'send_text':
-          pressEvent.outputText = event.key
-          break
-      }
-    })
+    if (zl2Btn.clickEvents) {
+      zl2Btn.clickEvents.forEach(event => {
+        switch (event.type) {
+          case 'key':
+            const fclKey = this.glfwToFclKeymap[event.key]
+            if (fclKey !== undefined) {
+              pressEvent.outputKeycodes.push(fclKey)
+            }
+            break
+          case 'launcher_event':
+            this.handleLauncherEvent(event.key, pressEvent)
+            break
+          case 'switch_layer':
+            const fclLayerId = this.viewGroupIdMap.get(event.key)
+            if (fclLayerId) {
+              pressEvent.bindViewGroup.push(fclLayerId)
+            } else {
+              // 如果找不到映射，可能是外部引用或直接使用的 ID
+              pressEvent.bindViewGroup.push(event.key)
+            }
+            break
+          case 'send_text':
+            pressEvent.outputText = event.key
+            break
+        }
+      })
+    }
 
     return {
       pressEvent,
@@ -259,8 +265,8 @@ export class ZL2ToFCLConverter {
     }
   }
 
-  private convertStyles(zl2Styles: ZL2ButtonStyle[], layers: ZL2Layer[]): FCLButtonStyle[] {
-    const fclStyles: FCLButtonStyle[] = zl2Styles.map(style => {
+  private convertStyles(zl2Styles: ZL2ButtonStyle[] | undefined, layers: ZL2Layer[] | undefined): FCLButtonStyle[] {
+    const fclStyles: FCLButtonStyle[] = (zl2Styles || []).map(style => {
       const config = style.lightStyle
       return {
         name: this.getFclStyleName(style.uuid),
@@ -281,16 +287,20 @@ export class ZL2ToFCLConverter {
 
     // 收集所有被按钮引用的样式名称
     const referencedStyleNames = new Set<string>()
-    layers.forEach(layer => {
-      layer.normalButtons.forEach(btn => {
-        referencedStyleNames.add(this.getFclStyleName(btn.buttonStyle))
+    if (layers) {
+      layers.forEach(layer => {
+        if (layer.normalButtons) {
+          layer.normalButtons.forEach(btn => {
+            referencedStyleNames.add(this.getFclStyleName(btn.buttonStyle))
+          })
+        }
+        if (layer.textBoxes) {
+          layer.textBoxes.forEach(text => {
+            referencedStyleNames.add(this.getFclStyleName(text.buttonStyle))
+          })
+        }
       })
-      if (layer.textBoxes) {
-        layer.textBoxes.forEach(text => {
-          referencedStyleNames.add(this.getFclStyleName(text.buttonStyle))
-        })
-      }
-    })
+    }
 
     // 确保所有引用的样式都在 buttonStyles 中
     referencedStyleNames.forEach(name => {
