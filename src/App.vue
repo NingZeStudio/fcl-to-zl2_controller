@@ -318,14 +318,14 @@ function convert() {
 
       // 统计信息
       const totalButtons = zl2Layout.layers.reduce(
-        (sum, l) => sum + l.normalButtons.length, 0
+        (sum, l) => sum + (l.normalButtons?.length || 0), 0
       )
 
       conversionStats.value = {
         layers: zl2Layout.layers.length,
         buttons: totalButtons,
         directions: 0,
-        styles: zl2Layout.styles.length
+        styles: zl2Layout.styles?.length || 0
       }
     }
   } catch (error) {

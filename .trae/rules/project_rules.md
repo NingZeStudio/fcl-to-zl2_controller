@@ -72,6 +72,10 @@ FCL 到 ZL2 控件转换器是一个 Web 应用，支持 Fold Craft Launcher (FC
   2. 在 `src/converter/keymap.ts` 中以字符串形式存储颜色常量。
   3. 在 `App.vue` 中进行 JSON 序列化后，使用正则表达式 `jsonStr.replace(/"(-?\d{10,})"/g, '$1')` 移除引号，确保输出为纯数字且不丢失精度。
 
+### 9. 健壮性与防御性编程 (v1.0.5 新增)
+- **可选字段检查**: ZL2 配置中的 `layers`、`normalButtons`、`styles` 等字段均为可选。在进行转换或统计计算时，必须使用可选链 (`?.`) 或逻辑或 (`|| []`) 进行防御性处理，防止 `Cannot read properties of undefined` 错误。
+- **逆向转换安全**: 在 `reverse-converter.ts` 中，初始化视图组和样式映射时必须先检查输入数组是否存在。
+
 ## 开发规范
 - 必须保持类型安全，使用 `src/types/` 下的定义。
 - 逻辑应保持模块化，转换逻辑集中在 `src/converter/`。
