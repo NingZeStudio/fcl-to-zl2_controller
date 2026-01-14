@@ -276,10 +276,19 @@ function convert() {
     const inputJson = JSON.parse(inputContent.value)
     
     if (conversionMode.value === 'fcl-to-zl2') {
-      const fclController = inputJson as FCLController
-      // 验证基本结构
+      const fclController = inputJson as any
+      
+      // 检查是否误将 ZL2 配置粘贴到了 FCL 输入框
+      if (fclController.layers && Array.isArray(fclController.layers)) {
+        throw new Error('检测到 ZL2 配置，请切换至 "ZL2 → FCL" 模式后再转换')
+      }
+
+      // 验证 FCL 基本结构
       if (!fclController.viewGroups || !Array.isArray(fclController.viewGroups)) {
-        throw new Error('无效的 FCL 配置：缺少 viewGroups')
+        if (fclController.scaledAt || fclController.buttons) {
+          throw new Error('无效的 FCL 配置：检测到可能是 PojavLauncher/Board 格式，目前仅支持 FCL 标准格式')
+        }
+        throw new Error('无效的 FCL 配置：缺少关键字段 viewGroups')
       }
 
       currentId.value = fclController.id || 'unknown'
@@ -291,23 +300,29 @@ function convert() {
 
       // 统计信息
       const totalButtons = fclController.viewGroups.reduce(
-        (sum, g) => sum + g.viewData.buttonList.length, 0
+        (sum: number, g: any) => sum + (g.viewData?.buttonList?.length || 0), 0
       )
       const totalDirections = fclController.viewGroups.reduce(
-        (sum, g) => sum + g.viewData.directionList.length, 0
+        (sum: number, g: any) => sum + (g.viewData?.directionList?.length || 0), 0
       )
 
       conversionStats.value = {
         layers: fclController.viewGroups.length,
         buttons: totalButtons,
         directions: totalDirections,
-        styles: fclController.buttonStyles.length
+        styles: fclController.buttonStyles?.length || 0
       }
     } else {
-      const zl2Layout = inputJson as ZL2ControlLayout
-      // 验证基本结构
+      const zl2Layout = inputJson as any
+      
+      // 检查是否误将 FCL 配置粘贴到了 ZL2 输入框
+      if (zl2Layout.viewGroups && Array.isArray(zl2Layout.viewGroups)) {
+        throw new Error('检测到 FCL 配置，请切换至 "FCL → ZL2" 模式后再转换')
+      }
+
+      // 验证 ZL2 基本结构
       if (!zl2Layout.layers || !Array.isArray(zl2Layout.layers)) {
-        throw new Error('无效的 ZL2 配置：缺少 layers')
+        throw new Error('无效的 ZL2 配置：缺少关键字段 layers')
       }
 
       currentId.value = zl2Layout.info.name.default.toLowerCase().replace(/\s+/g, '_') || 'converted_fcl'

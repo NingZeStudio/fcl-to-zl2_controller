@@ -73,6 +73,8 @@ FCL 到 ZL2 控件转换器是一个 Web 应用，支持 Fold Craft Launcher (FC
   3. 在 `App.vue` 中进行 JSON 序列化后，使用正则表达式 `jsonStr.replace(/"(-?\d{10,})"/g, '$1')` 移除引号，确保输出为纯数字且不丢失精度。
 
 ### 9. 健壮性与防御性编程 (v1.0.5 新增)
+- **输入验证与模式推断**: 转换前必须验证 JSON 的核心字段（FCL 的 `viewGroups`, ZL2 的 `layers`）。如果用户在错误模式下粘贴了正确的配置，应通过报错信息提示用户切换模式。
+- **第三方格式识别**: 识别并友好提示非目标格式（如 PojavLauncher/Board 格式，通常包含 `scaledAt` 字段），避免通用的“缺少字段”报错导致用户困惑。
 - **可选字段检查**: ZL2 配置中的 `layers`、`normalButtons`、`styles` 等字段均为可选。在进行转换或统计计算时，必须使用可选链 (`?.`) 或逻辑或 (`|| []`) 进行防御性处理，防止 `Cannot read properties of undefined` 错误。
 - **逆向转换安全**: 在 `reverse-converter.ts` 中，初始化视图组和样式映射时必须先检查输入数组是否存在。
 
