@@ -1,218 +1,276 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
-    <div class="max-w-7xl mx-auto">
-      <!-- 标题 -->
-      <div class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-        <div class="text-center md:text-left">
-          <h1 class="text-4xl font-bold text-slate-900 dark:text-white mb-2">
-            {{ conversionMode === 'fcl-to-zl2' ? 'FCL → ZL2' : 'ZL2 → FCL' }} 控件转换器
-          </h1>
-          <p class="text-slate-600 dark:text-slate-400">
-            {{ conversionMode === 'fcl-to-zl2' ? '将 Fold Craft Launcher 控件配置转换为 ZalithLauncher 2 格式' : '将 ZalithLauncher 2 控件配置转换为 Fold Craft Launcher 格式' }}
-          </p>
+    <div class="w-full mx-auto">
+      <!-- 移动端比例提示遮罩 -->
+      <div v-if="isMobileRatio" class="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-6 text-center">
+        <div class="max-w-md space-y-6 animate-in fade-in zoom-in duration-300">
+          <div class="bg-blue-600 w-20 h-20 rounded-3xl mx-auto flex items-center justify-center shadow-2xl animate-bounce">
+            <Monitor class="h-10 w-10 text-white" />
+          </div>
+          <div class="space-y-2">
+            <h2 class="text-2xl font-bold text-white">体验提示</h2>
+            <p class="text-slate-400 leading-relaxed">
+              检测到您正在使用移动端比例访问。为了获得最佳的布局编辑体验，建议使用<strong>电脑浏览器</strong>访问，或将设备<strong>横屏使用</strong>。
+            </p>
+          </div>
+          <div class="flex flex-col gap-3">
+            <Button @click="isMobileRatio = false" variant="default" class="bg-blue-600 hover:bg-blue-700 text-white h-12">
+              我知道了，继续访问
+            </Button>
+          </div>
         </div>
-        <div class="flex w-full md:w-auto bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+      </div>
+
+      <!-- 顶部导航 -->
+      <div class="flex justify-center mb-10">
+        <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-1.5 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex gap-2">
           <button 
-            @click="conversionMode = 'fcl-to-zl2'"
-            class="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            :class="conversionMode === 'fcl-to-zl2' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
+            @click="activeTab = 'converter'"
+            class="px-8 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+            :class="activeTab === 'converter' ? 'bg-blue-600 text-white shadow-lg scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
           >
-            FCL → ZL2
+            <RefreshCw class="h-4 w-4" />
+            转换器
           </button>
           <button 
-            @click="conversionMode = 'zl2-to-fcl'"
-            class="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            :class="conversionMode === 'zl2-to-fcl' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
+            @click="activeTab = 'editor'"
+            class="px-8 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+            :class="activeTab === 'editor' ? 'bg-blue-600 text-white shadow-lg scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
           >
-            ZL2 → FCL
+            <Edit3 class="h-4 w-4" />
+            布局编辑器
           </button>
         </div>
       </div>
 
-      <!-- 警告提示 -->
-      <Alert variant="default" class="mb-6 bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
-        <div class="flex items-start gap-3">
-          <AlertCircle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-          <div class="flex-1">
-            <h3 class="font-semibold text-amber-900 dark:text-amber-100 mb-1">重要提示</h3>
-            <p v-if="conversionMode === 'fcl-to-zl2'" class="text-sm text-amber-800 dark:text-amber-200">
-              转换后的 ZL2 配置使用了安全的颜色值。如需自定义颜色，请使用 ZL2 编辑器的可视化颜色选择器，
-              <strong>不要</strong>手动修改颜色值，否则可能导致应用崩溃。
+      <!-- 转换器视图 -->
+      <div v-if="activeTab === 'converter'" class="animate-in fade-in duration-500">
+        <!-- 标题 -->
+        <div class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+          <div class="text-center md:text-left">
+            <h1 class="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+              {{ conversionMode === 'fcl-to-zl2' ? 'FCL → ZL2' : 'ZL2 → FCL' }} 控件转换器
+            </h1>
+            <p class="text-slate-600 dark:text-slate-400">
+              {{ conversionMode === 'fcl-to-zl2' ? '将 Fold Craft Launcher 控件配置转换为 ZalithLauncher 2 格式' : '将 ZalithLauncher 2 控件配置转换为 Fold Craft Launcher 格式' }}
             </p>
-            <p v-else class="text-sm text-amber-800 dark:text-amber-200">
-              ZL2 转换为 FCL 时，由于 FCL 坐标系精度较低（千分比），转换后的位置可能存在微小偏差。
-              此外，ZL2 的颜色值无法完美映射回 FCL，建议在 FCL 编辑器中重新调整控件样式。
-            </p>
+          </div>
+          <div class="flex w-full md:w-auto bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+            <button 
+              @click="conversionMode = 'fcl-to-zl2'"
+              class="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              :class="conversionMode === 'fcl-to-zl2' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
+            >
+              FCL → ZL2
+            </button>
+            <button 
+              @click="conversionMode = 'zl2-to-fcl'"
+              class="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              :class="conversionMode === 'zl2-to-fcl' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'"
+            >
+              ZL2 → FCL
+            </button>
           </div>
         </div>
-      </Alert>
 
-      <!-- 主要内容区 -->
-      <div class="grid md:grid-cols-2 gap-6">
-        <!-- 输入区 -->
-        <Card class="p-6">
-          <div class="mb-4">
-            <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-              <FileInput class="h-5 w-5" />
-              {{ conversionMode === 'fcl-to-zl2' ? 'FCL 控件配置 (输入)' : 'ZL2 控件配置 (输入)' }}
-            </h2>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
-              {{ conversionMode === 'fcl-to-zl2' ? '粘贴 FCL 控件的 JSON 配置' : '粘贴 ZL2 控件的 JSON 配置' }}
-            </p>
-          </div>
-          
-          <div
-            class="relative"
-            @dragover.prevent
-            @dragenter.prevent
-            @drop="handleFileDrop"
-          >
-            <Textarea
-              v-model="inputContent"
-              :placeholder='conversionMode === "fcl-to-zl2" ? "粘贴 FCL JSON 配置，或拖拽 JSON 文件到此处..." : "粘贴 ZL2 JSON 配置，或拖拽 JSON 文件到此处..."'
-              class="font-mono text-xs h-[350px] md:h-[500px]"
-              :class="{ 'border-red-500': inputError, 'border-blue-500 bg-blue-50 dark:bg-blue-950': isDragOver }"
-              @dragover="isDragOver = true"
-              @dragleave="isDragOver = false"
-            />
-          </div>
-          
-          <div v-if="inputError" class="mt-2 text-sm text-red-600 dark:text-red-400">
-            {{ inputError }}
-          </div>
-
-          <div class="mt-4 flex flex-wrap gap-2">
-            <Button @click="loadExample" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
-              <FileText class="h-4 w-4" />
-              示例
-            </Button>
-            <Button @click="triggerFileInput" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
-              <FileInput class="h-4 w-4" />
-              导入
-            </Button>
-            <Button @click="clearInput" variant="ghost" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
-              <X class="h-4 w-4" />
-              清空
-            </Button>
-          </div>
-          
-          <!-- 隐藏的文件输入 -->
-          <input
-            ref="fileInputRef"
-            type="file"
-            accept=".json"
-            @change="handleFileImport"
-            class="hidden"
-          />
-        </Card>
-
-        <!-- 输出区 -->
-        <Card class="p-6">
-          <div class="mb-4">
-            <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-              <FileOutput class="h-5 w-5" />
-              {{ conversionMode === 'fcl-to-zl2' ? 'ZL2 控件配置 (输出)' : 'FCL 控件配置 (输出)' }}
-            </h2>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
-              {{ conversionMode === 'fcl-to-zl2' ? '转换后的 ZL2 JSON 配置' : '转换后的 FCL JSON 配置' }}
-            </p>
-          </div>
-          
-          <Textarea
-            v-model="outputContent"
-            placeholder="转换结果将显示在这里..."
-            class="font-mono text-xs h-[350px] md:h-[500px]"
-            readonly
-          />
-
-          <div v-if="conversionStats" class="mt-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-md text-sm">
-            <div class="font-semibold mb-1 text-slate-900 dark:text-white">转换统计</div>
-            <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-4 gap-y-1 text-slate-700 dark:text-slate-300">
-              <div>• 控件层: {{ conversionStats.layers }}</div>
-              <div>• 按钮: {{ conversionStats.buttons }}</div>
-              <div v-if="conversionStats.directions > 0">• 方向键: {{ conversionStats.directions }}</div>
-              <div>• 样式: {{ conversionStats.styles }}</div>
+        <!-- 警告提示 -->
+        <Alert variant="default" class="mb-6 bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+          <div class="flex items-start gap-3">
+            <AlertCircle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div class="flex-1">
+              <h3 class="font-semibold text-amber-900 dark:text-amber-100 mb-1">重要提示</h3>
+              <p v-if="conversionMode === 'fcl-to-zl2'" class="text-sm text-amber-800 dark:text-amber-200">
+                转换后的 ZL2 配置使用了安全的颜色值。如需自定义颜色，请使用 ZL2 编辑器的可视化颜色选择器，
+                <strong>不要</strong>手动修改颜色值，否则可能导致应用崩溃。
+              </p>
+              <p v-else class="text-sm text-amber-800 dark:text-amber-200">
+                ZL2 转换为 FCL 时，由于 FCL 坐标系精度较低（千分比），转换后的位置可能存在微小偏差。
+                此外，ZL2 的颜色值无法完美映射回 FCL，建议在 FCL 编辑器中重新调整控件样式。
+              </p>
             </div>
           </div>
+        </Alert>
 
-          <div class="mt-4 flex flex-wrap gap-2">
-            <Button @click="copyOutput" variant="default" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2" :disabled="!outputContent">
-              <Copy class="h-4 w-4" />
-              复制
-            </Button>
-            <Button @click="downloadOutput" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2" :disabled="!outputContent">
-              <Download class="h-4 w-4" />
-              下载
-            </Button>
+        <!-- 主要内容区 -->
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- 输入区 -->
+          <Card class="p-6">
+            <div class="mb-4">
+              <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                <FileInput class="h-5 w-5" />
+                {{ conversionMode === 'fcl-to-zl2' ? 'FCL 控件配置 (输入)' : 'ZL2 控件配置 (输入)' }}
+              </h2>
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                {{ conversionMode === 'fcl-to-zl2' ? '粘贴 FCL 控件的 JSON 配置' : '粘贴 ZL2 控件的 JSON 配置' }}
+              </p>
+            </div>
+            
+            <div
+              class="relative"
+              @dragover.prevent
+              @dragenter.prevent
+              @drop="handleFileDrop"
+            >
+              <Textarea
+                v-model="inputContent"
+                :placeholder='conversionMode === "fcl-to-zl2" ? "粘贴 FCL JSON 配置，或拖拽 JSON 文件到此处..." : "粘贴 ZL2 JSON 配置，或拖拽 JSON 文件到此处..."'
+                class="font-mono text-xs h-[350px] md:h-[500px]"
+                :class="{ 'border-red-500': inputError, 'border-blue-500 bg-blue-50 dark:bg-blue-950': isDragOver }"
+                @dragover="isDragOver = true"
+                @dragleave="isDragOver = false"
+              />
+            </div>
+            
+            <div v-if="inputError" class="mt-2 text-sm text-red-600 dark:text-red-400">
+              {{ inputError }}
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2">
+              <Button @click="loadExample" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
+                <FileText class="h-4 w-4" />
+                示例
+              </Button>
+              <Button @click="triggerFileInput" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
+                <FileInput class="h-4 w-4" />
+                导入
+              </Button>
+              <Button @click="clearInput" variant="ghost" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2">
+                <X class="h-4 w-4" />
+                清空
+              </Button>
+            </div>
+            
+            <!-- 隐藏的文件输入 -->
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept=".json"
+              @change="handleFileImport"
+              class="hidden"
+            />
+          </Card>
+
+          <!-- 输出区 -->
+          <Card class="p-6">
+            <div class="mb-4">
+              <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                <FileOutput class="h-5 w-5" />
+                {{ conversionMode === 'fcl-to-zl2' ? 'ZL2 控件配置 (输出)' : 'FCL 控件配置 (输出)' }}
+              </h2>
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                {{ conversionMode === 'fcl-to-zl2' ? '转换后的 ZL2 JSON 配置' : '转换后的 FCL JSON 配置' }}
+              </p>
+            </div>
+            
+            <Textarea
+              v-model="outputContent"
+              placeholder="转换结果将显示在这里..."
+              class="font-mono text-xs h-[350px] md:h-[500px]"
+              readonly
+            />
+
+            <div v-if="conversionStats" class="mt-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-md text-sm">
+              <div class="font-semibold mb-1 text-slate-900 dark:text-white">转换统计</div>
+              <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-4 gap-y-1 text-slate-700 dark:text-slate-300">
+                <div>• 控件层: {{ conversionStats.layers }}</div>
+                <div>• 按钮: {{ conversionStats.buttons }}</div>
+                <div v-if="conversionStats.directions > 0">• 方向键: {{ conversionStats.directions }}</div>
+                <div>• 样式: {{ conversionStats.styles }}</div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2">
+              <Button @click="copyOutput" variant="default" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2" :disabled="!outputContent">
+                <Copy class="h-4 w-4" />
+                复制
+              </Button>
+              <Button @click="downloadOutput" variant="outline" size="sm" class="flex-1 md:flex-none flex items-center justify-center gap-2" :disabled="!outputContent">
+                <Download class="h-4 w-4" />
+                下载
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+        <!-- 转换按钮 -->
+        <div class="mt-6 flex flex-col items-center gap-4">
+          <Button 
+            @click="convert" 
+            size="lg" 
+            class="w-full md:w-auto px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all relative overflow-hidden"
+            :disabled="!inputContent || converting"
+          >
+            <div v-if="converting" class="absolute inset-0 bg-blue-600/20 animate-pulse"></div>
+            <ArrowRight v-if="!converting" class="h-5 w-5 mr-2" />
+            <Loader2 v-else class="h-5 w-5 mr-2 animate-spin" />
+            {{ converting ? '转换中...' : '开始转换' }}
+          </Button>
+          
+          <transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="transform scale-95 opacity-0"
+            enter-to-class="transform scale-100 opacity-100"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="transform scale-100 opacity-100"
+            leave-to-class="transform scale-95 opacity-0"
+          >
+            <div v-if="showSuccess" class="text-green-600 dark:text-green-400 flex items-center gap-2 font-medium">
+              <CheckCircle2 class="h-5 w-5" />
+              转换成功！
+            </div>
+          </transition>
+        </div>
+
+        <!-- 使用说明 -->
+        <Card class="mt-8 p-6">
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-3">使用说明</h3>
+          <ol class="list-decimal list-inside space-y-2 text-sm text-slate-700 dark:text-slate-300">
+            <li v-if="conversionMode === 'fcl-to-zl2'">粘贴 FCL JSON 配置到左侧输入框，或点击"导入文件"选择 JSON 文件</li>
+            <li v-else>粘贴 ZL2 JSON 配置到左侧输入框，或点击"导入文件"选择 JSON 文件</li>
+            
+            <li>点击"开始转换"按钮</li>
+            <li>在右侧查看转换后的结果</li>
+            
+            <li v-if="conversionMode === 'fcl-to-zl2'">复制或下载转换结果（文件名格式：zl2_控件ID.json）</li>
+            <li v-else>复制或下载转换结果（文件名格式：fcl_控件ID.json）</li>
+            
+            <li v-if="conversionMode === 'fcl-to-zl2'">在 ZL2 启动器中导入转换后的配置</li>
+            <li v-else>在 FCL 启动器中导入或替换对应的控件 JSON 文件</li>
+          </ol>
+          
+          <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md">
+            <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-1 text-sm">转换说明</h4>
+            <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+              <li>• 支持拖拽或点击导入 JSON 文件</li>
+              <template v-if="conversionMode === 'fcl-to-zl2'">
+                <li>• 方向键会被转换为 8 个独立按钮（支持斜向移动）</li>
+                <li>• 键码会自动映射为 GLFW 格式</li>
+                <li>• 样式使用安全的颜色值，避免崩溃</li>
+              </template>
+              <template v-else>
+                <li>• ZL2 的所有按钮会被转换为 FCL 普通按钮（buttonList）</li>
+                <li>• 不会尝试识别方向盘，保留原始按钮布局以获得更好的兼容性</li>
+                <li>• GLFW 键码会自动映射回 FCL 数字键码</li>
+                <li>• 坐标从万分比缩放到千分比，存在约 1% 的精度损失</li>
+              </template>
+              <li>• 输出文件名自动包含原控件 ID 或名称</li>
+            </ul>
           </div>
         </Card>
       </div>
 
-      <!-- 转换按钮 -->
-      <div class="mt-6 flex flex-col items-center gap-4">
-        <Button 
-          @click="convert" 
-          size="lg" 
-          class="w-full md:w-auto px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all relative overflow-hidden"
-          :disabled="!inputContent || converting"
-        >
-          <div v-if="converting" class="absolute inset-0 bg-blue-600/20 animate-pulse"></div>
-          <ArrowRight v-if="!converting" class="h-5 w-5 mr-2" />
-          <Loader2 v-else class="h-5 w-5 mr-2 animate-spin" />
-          {{ converting ? '转换中...' : '开始转换' }}
-        </Button>
-        
-        <transition
-          enter-active-class="transition duration-300 ease-out"
-          enter-from-class="transform scale-95 opacity-0"
-          enter-to-class="transform scale-100 opacity-100"
-          leave-active-class="transition duration-200 ease-in"
-          leave-from-class="transform scale-100 opacity-100"
-          leave-to-class="transform scale-95 opacity-0"
-        >
-          <div v-if="showSuccess" class="text-green-600 dark:text-green-400 flex items-center gap-2 font-medium">
-            <CheckCircle2 class="h-5 w-5" />
-            转换成功！
-          </div>
-        </transition>
-      </div>
-
-      <!-- 使用说明 -->
-      <Card class="mt-8 p-6">
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-3">使用说明</h3>
-        <ol class="list-decimal list-inside space-y-2 text-sm text-slate-700 dark:text-slate-300">
-          <li v-if="conversionMode === 'fcl-to-zl2'">粘贴 FCL JSON 配置到左侧输入框，或点击"导入文件"选择 JSON 文件</li>
-          <li v-else>粘贴 ZL2 JSON 配置到左侧输入框，或点击"导入文件"选择 JSON 文件</li>
-          
-          <li>点击"开始转换"按钮</li>
-          <li>在右侧查看转换后的结果</li>
-          
-          <li v-if="conversionMode === 'fcl-to-zl2'">复制或下载转换结果（文件名格式：zl2_控件ID.json）</li>
-          <li v-else>复制或下载转换结果（文件名格式：fcl_控件ID.json）</li>
-          
-          <li v-if="conversionMode === 'fcl-to-zl2'">在 ZL2 启动器中导入转换后的配置</li>
-          <li v-else>在 FCL 启动器中导入或替换对应的控件 JSON 文件</li>
-        </ol>
-        
-        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md">
-          <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-1 text-sm">转换说明</h4>
-          <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-1">
-            <li>• 支持拖拽或点击导入 JSON 文件</li>
-            <template v-if="conversionMode === 'fcl-to-zl2'">
-              <li>• 方向键会被转换为 8 个独立按钮（支持斜向移动）</li>
-              <li>• 键码会自动映射为 GLFW 格式</li>
-              <li>• 样式使用安全的颜色值，避免崩溃</li>
-            </template>
-            <template v-else>
-              <li>• ZL2 的所有按钮会被转换为 FCL 普通按钮（buttonList）</li>
-              <li>• 不会尝试识别方向盘，保留原始按钮布局以获得更好的兼容性</li>
-              <li>• GLFW 键码会自动映射回 FCL 数字键码</li>
-              <li>• 坐标从万分比缩放到千分比，存在约 1% 的精度损失</li>
-            </template>
-            <li>• 输出文件名自动包含原控件 ID 或名称</li>
-          </ul>
+      <!-- 编辑器视图 -->
+      <div v-else-if="activeTab === 'editor'" class="animate-in slide-in-from-bottom-4 fade-in duration-500">
+        <div class="mb-8 text-center md:text-left">
+          <h1 class="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+            FCL 布局编辑器
+          </h1>
+          <p class="text-slate-600 dark:text-slate-400">
+            可视化创建和编辑 Fold Craft Launcher 控件布局
+          </p>
         </div>
-      </Card>
+        <FCLEditor />
+      </div>
 
       <!-- 页脚 -->
       <div class="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
@@ -223,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { 
   AlertCircle, 
   FileInput, 
@@ -234,16 +292,21 @@ import {
   FileText,
   X,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw,
+  Edit3,
+  Monitor
 } from 'lucide-vue-next'
 import Card from './components/Card.vue'
 import Button from './components/Button.vue'
 import Textarea from './components/Textarea.vue'
 import Alert from './components/Alert.vue'
+import FCLEditor from './views/FCLEditor.vue'
 import { FCLToZL2Converter, ZL2ToFCLConverter } from './converter'
 import type { FCLController } from './types/fcl'
 import type { ZL2ControlLayout } from './types/zl2'
 
+const activeTab = ref<'converter' | 'editor'>('converter')
 const conversionMode = ref<'fcl-to-zl2' | 'zl2-to-fcl'>('fcl-to-zl2')
 const inputContent = ref('')
 const outputContent = ref('')
@@ -253,6 +316,22 @@ const showSuccess = ref(false)
 const fileInputRef = ref<HTMLInputElement>()
 const currentId = ref('')
 const isDragOver = ref(false)
+const isMobileRatio = ref(false)
+
+const checkRatio = () => {
+  // 检测手机比例：高度大于宽度
+  isMobileRatio.value = window.innerHeight > window.innerWidth
+}
+
+onMounted(() => {
+  checkRatio()
+  window.addEventListener('resize', checkRatio)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkRatio)
+})
+
 const conversionStats = ref<{
   layers: number
   buttons: number
