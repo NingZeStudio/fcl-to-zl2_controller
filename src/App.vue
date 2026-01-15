@@ -1,8 +1,8 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
     <div class="w-full mx-auto">
-      <!-- 移动端比例提示遮罩 -->
-      <div v-if="isMobileRatio" class="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-6 text-center">
+      <!-- 移动端比例提示遮罩 (仅在编辑器页面显示) -->
+      <div v-if="isMobileRatio && activeTab === 'editor'" class="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-6 text-center">
         <div class="max-w-md space-y-6 animate-in fade-in zoom-in duration-300">
           <div class="bg-blue-600 w-20 h-20 rounded-3xl mx-auto flex items-center justify-center shadow-2xl animate-bounce">
             <Monitor class="h-10 w-10 text-white" />
