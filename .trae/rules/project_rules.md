@@ -111,4 +111,33 @@ FCL 到 ZL2 控件转换器是一个 Web 应用，支持 Fold Craft Launcher (FC
 - 逻辑应保持模块化，转换逻辑集中在 `src/converter/`。
 - **UI 状态同步**: 当转换模式 (`conversionMode`) 切换时，必须清空输入和输出内容，并同步更新所有的 UI 说明、占位符和统计信息。
 - 修改代码后需验证颜色值输出是否为不带引号的大整数。
-- 文档位于项目根目录及 `fcl控件文档/`、`zl2控件文档/`、`docs/` 目录下。
+## ZL2 编辑器版本
+- 当前版本: 11
+- 版本迁移: 低于当前版本的布局会自动升级
+- 版本号检查: 序列化时必须包含 `editorVersion` 字段
+
+## ZL2 特殊配置
+- `special.joystickStyle`: 可选的摇杆样式配置
+- 若为 `null`，使用启动器内置摇杆样式
+
+## ZL2 JSON 序列化
+```kotlin
+val layoutJson = Json {
+    prettyPrint = true
+    ignoreUnknownKeys = true
+    serializersModule = SerializersModule {
+        contextual(Color::class, ColorSerializer)
+    }
+}
+```
+- Color 使用 Long 序列化以保证精度
+- UUID 为无连字符的随机字符串
+
+## 文档位置
+- FCL 控件文档: `fcl控件文档/`
+- ZL2 控件文档: `zl2控件文档/`
+  - `数据类型.md` - ZL2 核心数据结构详解
+  - `布局结构.md` - ControlLayout、ControlLayer 结构及版本迁移
+  - `键码映射.md` - GLFW 键码完整映射表
+  - `示例布局分析.md` - default_layout.json 详细分析
+- 通用文档: `docs/`

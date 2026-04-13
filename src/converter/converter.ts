@@ -1,20 +1,21 @@
 import type { FCLController, FCLButton, FCLDirection, FCLButtonStyle } from '@/types/fcl'
-import type { 
-  ZL2ControlLayout, 
-  ZL2Layer, 
-  ZL2NormalButton, 
+import type {
+  ZL2ControlLayout,
+  ZL2Layer,
+  ZL2NormalButton,
   ZL2ButtonStyle,
   ZL2ClickEvent,
-  ZL2TranslatableString
+  ZL2TranslatableString,
+  ZL2TextBox
 } from '@/types/zl2'
 import { FCL_TO_GLFW_KEYMAP, SAFE_ZL2_COLORS, FCL_SPECIAL_EVENTS } from './keymap'
+import { ConversionError, ConversionErrorCode } from './errors'
 
-// ZL2 布局安全限制常量 (参考 ZL2 控件系统开发文档)
 const ZL2_LIMITS = {
-  MIN_PERCENTAGE: 500,  // 最小百分比 5% (文档规定 500-10000)
-  MIN_DP: 5,            // 最小 DP 尺寸
-  MAX_COORD: 10000,     // 最大坐标值
-  MIN_COORD: 0,         // 最小坐标值
+  MIN_PERCENTAGE: 500,
+  MIN_DP: 5,
+  MAX_COORD: 10000,
+  MIN_COORD: 0,
   FONT_SIZE: { MIN: 2, MAX: 30 },
   BORDER_WIDTH: { MIN: 0, MAX: 50 },
   ALPHA: { MIN: 0.0, MAX: 1.0 }
@@ -25,90 +26,109 @@ export class FCLToZL2Converter {
   private layerMap: Map<string, string> = new Map()
 
   convert(fclController: FCLController): ZL2ControlLayout {
-    this.styleMap.clear()
-    this.layerMap.clear()
+    try {
+      this.styleMap.clear()
+      this.layerMap.clear()
 
-    // 第一步：建立层级映射
-    this.buildLayerMapping(fclController)
+      if (!fclController.viewGroups) {
+        throw ConversionError.missingField('viewGroups', 'FCLController')
+      }
 
-    return {
-      info: this.convertInfo(fclController),
-      layers: this.convertLayers(fclController),
-      styles: this.convertStyles(fclController),
-      special: {
-        defaultJoystickStyle: {
-          alpha: 1.0,
-          backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
-          joystickColor: SAFE_ZL2_COLORS.WHITE,
-          joystickCanLockColor: SAFE_ZL2_COLORS.GRAY,
-          joystickLockedColor: SAFE_ZL2_COLORS.WHITE,
-          backgroundShape: 50,
-          joystickShape: 50,
-          joystickSize: 0.5
-        }
-      },
-      editorVersion: 4
+      this.buildLayerMapping(fclController)
+
+      return {
+        info: this.convertInfo(fclController),
+        layers: this.convertLayers(fclController),
+        styles: this.convertStyles(fclController),
+        special: {
+          joystickStyle: null
+        },
+        editorVersion: 11
+      }
+    } catch (err) {
+      if (err instanceof ConversionError) throw err
+      throw new ConversionError(
+        `FCL to ZL2 conversion failed: ${(err as Error).message}`,
+        ConversionErrorCode.INVALID_JSON,
+        { originalError: err }
+      )
     }
   }
 
   private buildLayerMapping(fcl: FCLController): void {
-    // 为每个视图组生成 UUID 并建立映射
-    fcl.viewGroups.forEach(group => {
+    ;(fcl.viewGroups || []).forEach(group => {
       const layerUuid = this.generateUUID()
       this.layerMap.set(group.id, layerUuid)
-      console.log(`Layer mapping: ${group.id} -> ${layerUuid}`)
     })
   }
 
   private convertInfo(fcl: FCLController): ZL2ControlLayout['info'] {
     return {
-      name: this.createTranslatableString(fcl.name),
-      author: this.createTranslatableString(fcl.author),
-      description: this.createTranslatableString(fcl.description),
-      versionCode: fcl.versionCode,
-      versionName: fcl.version
+      name: this.createTranslatableString(fcl.name || 'Untitled'),
+      author: this.createTranslatableString(fcl.author || 'Unknown'),
+      description: this.createTranslatableString(fcl.description || ''),
+      versionCode: fcl.versionCode || 0,
+      versionName: fcl.version || '1.0'
     }
   }
 
   private createTranslatableString(text: string): ZL2TranslatableString {
     return {
-      default: text,
+      default: text || '',
       matchQueue: []
     }
   }
 
   private convertLayers(fcl: FCLController): ZL2Layer[] {
-    return fcl.viewGroups.map(group => {
-      // 使用预先建立的映射
-      const layerUuid = this.layerMap.get(group.id)!
-      
+    return (fcl.viewGroups || []).map(group => {
+      const layerUuid = this.layerMap.get(group.id) || this.generateUUID()
+      const viewData = group.viewData || {}
+
       return {
-        name: group.name,
+        name: group.name || 'Unnamed',
         uuid: layerUuid,
         hide: group.visibility === 'INVISIBLE',
         hideWhenMouse: false,
         hideWhenGamepad: false,
-        visibilityType: 'always',
+        hideWhenJoystick: false,
+        visibilityType: this.convertGroupVisibility(group.visibility, viewData),
         normalButtons: [
-          ...group.viewData.buttonList.map(btn => this.convertButton(btn)),
-          ...this.convertDirectionsToButtons(group.viewData.directionList)
+          ...(viewData.buttonList || []).map(btn => this.convertButton(btn)),
+          ...this.convertDirectionsToButtons(viewData.directionList || [])
         ],
-        textBoxes: group.viewData.buttonList
-          .filter(btn => btn.text && btn.text.startsWith('T:')) // 假设以 T: 开头的按钮转换为文本框
+        textBoxes: (viewData.buttonList || [])
+          .filter(btn => btn.text && btn.text.startsWith('T:'))
           .map(btn => this.convertButtonToTextBox(btn))
       }
     })
   }
 
+  private convertGroupVisibility(groupVisibility: string, viewData: any): 'always' | 'in_game' | 'in_menu' {
+    const buttons = viewData.buttonList || []
+    const directions = viewData.directionList || []
+    const allWidgets = [...buttons, ...directions]
+
+    const hasAlways = allWidgets.some(w => w.baseInfo?.visibilityType === 'ALWAYS')
+    const hasInGame = allWidgets.some(w => w.baseInfo?.visibilityType === 'IN_GAME')
+    const hasInMenu = allWidgets.some(w => w.baseInfo?.visibilityType === 'MENU')
+
+    if (hasAlways && !hasInGame && !hasInMenu) return 'always'
+    if (hasInGame && !hasAlways && !hasInMenu) return 'in_game'
+    if (hasInMenu && !hasAlways && !hasInGame) return 'in_menu'
+
+    if (groupVisibility === 'INVISIBLE') return 'in_menu'
+    return 'always'
+  }
+
   private convertButtonToTextBox(fclBtn: FCLButton): ZL2TextBox {
-    const baseInfo = fclBtn.baseInfo
-    const text = fclBtn.text.startsWith('T:') ? fclBtn.text.substring(2) : fclBtn.text
+    const baseInfo = fclBtn.baseInfo || {}
+    const text = fclBtn.text?.startsWith('T:') ? fclBtn.text.substring(2) : (fclBtn.text || '')
     return {
       text: this.createTranslatableString(text),
       uuid: this.generateUUID(),
       position: {
-        x: this.clampCoord(Math.round(baseInfo.xPosition * 10)),
-        y: this.clampCoord(Math.round(baseInfo.yPosition * 10))
+        x: this.clampCoord(Math.round((baseInfo.xPosition || 0) * 10)),
+        y: this.clampCoord(Math.round((baseInfo.yPosition || 0) * 10))
       },
       buttonSize: this.convertButtonSize(baseInfo),
       buttonStyle: this.getStyleUUID(fclBtn.style),
@@ -121,14 +141,15 @@ export class FCLToZL2Converter {
   }
 
   private convertButton(fclBtn: FCLButton): ZL2NormalButton {
-    const baseInfo = fclBtn.baseInfo
-    
+    const baseInfo = fclBtn.baseInfo || {}
+    const event = fclBtn.event || {} as FCLButton['event']
+
     return {
-      text: this.createTranslatableString(fclBtn.text),
+      text: this.createTranslatableString(fclBtn.text || ''),
       uuid: this.generateUUID(),
       position: {
-        x: this.clampCoord(Math.round(baseInfo.xPosition * 10)), // FCL: 500 = 50%, ZL2: 5000 = 50%
-        y: this.clampCoord(Math.round(baseInfo.yPosition * 10))
+        x: this.clampCoord(Math.round((baseInfo.xPosition || 0) * 10)),
+        y: this.clampCoord(Math.round((baseInfo.yPosition || 0) * 10))
       },
       buttonSize: this.convertButtonSize(baseInfo),
       buttonStyle: this.getStyleUUID(fclBtn.style),
@@ -137,10 +158,10 @@ export class FCLToZL2Converter {
       textItalic: false,
       textUnderline: false,
       visibilityType: this.convertVisibilityType(baseInfo.visibilityType),
-      clickEvents: this.convertButtonEvents(fclBtn.event),
+      clickEvents: this.convertButtonEvents(event),
       isSwipple: false,
-      isPenetrable: fclBtn.event.pointerFollow,
-      isToggleable: fclBtn.event.pressEvent.autoKeep && !fclBtn.event.pressEvent.autoClick
+      isPenetrable: !!event.pointerFollow,
+      isToggleable: !!(event.pressEvent?.autoKeep && !event.pressEvent?.autoClick)
     }
   }
 
@@ -157,15 +178,14 @@ export class FCLToZL2Converter {
       }
     }
 
-    // PERCENTAGE
     const widthSize = baseInfo.percentageWidth?.size || 50
     const heightSize = baseInfo.percentageHeight?.size || 50
-    
+
     return {
       type: 'percentage',
       widthDp: 50,
       heightDp: 50,
-      widthPercentage: Math.max(ZL2_LIMITS.MIN_PERCENTAGE, Math.round(widthSize * 10)), // FCL: 50 = 5%, ZL2: 500 = 5%
+      widthPercentage: Math.max(ZL2_LIMITS.MIN_PERCENTAGE, Math.round(widthSize * 10)),
       heightPercentage: Math.max(ZL2_LIMITS.MIN_PERCENTAGE, Math.round(heightSize * 10)),
       widthReference: baseInfo.percentageWidth?.reference === 'SCREEN_WIDTH' ? 'screen_width' : 'screen_height',
       heightReference: baseInfo.percentageHeight?.reference === 'SCREEN_WIDTH' ? 'screen_width' : 'screen_height'
@@ -176,7 +196,7 @@ export class FCLToZL2Converter {
     return Math.min(ZL2_LIMITS.MAX_COORD, Math.max(ZL2_LIMITS.MIN_COORD, val))
   }
 
-  private convertVisibilityType(fclType: string): 'always' | 'in_game' | 'in_menu' {
+  private convertVisibilityType(fclType?: string): 'always' | 'in_game' | 'in_menu' {
     switch (fclType) {
       case 'IN_GAME': return 'in_game'
       case 'MENU': return 'in_menu'
@@ -187,7 +207,8 @@ export class FCLToZL2Converter {
   private convertButtonEvents(event: FCLButton['event']): ZL2ClickEvent[] {
     const events: ZL2ClickEvent[] = []
 
-    // 处理所有事件类型，合并所有有效事件
+    if (!event) return events
+
     const eventTypes = [
       { data: event.pressEvent, priority: 1 },
       { data: event.clickEvent, priority: 2 },
@@ -195,13 +216,12 @@ export class FCLToZL2Converter {
       { data: event.doubleClickEvent, priority: 4 }
     ]
 
-    // 找到优先级最高的有效事件
     let selectedEvent = null
     let highestPriority = 999
 
     for (const eventType of eventTypes) {
       if (!eventType.data) continue
-      
+
       const hasContent = (
         (eventType.data.outputKeycodes && eventType.data.outputKeycodes.length > 0) ||
         (eventType.data.outputText && eventType.data.outputText.trim()) ||
@@ -221,10 +241,8 @@ export class FCLToZL2Converter {
 
     if (!selectedEvent) return events
 
-    // 处理选中的事件
     const eventData = selectedEvent
 
-    // 处理键码输出
     if (eventData.outputKeycodes && eventData.outputKeycodes.length > 0) {
       eventData.outputKeycodes.forEach(keycode => {
         const glfwKey = this.convertKeycode(keycode)
@@ -233,11 +251,12 @@ export class FCLToZL2Converter {
             type: glfwKey.startsWith('launcher.event.') ? 'launcher_event' : 'key',
             key: glfwKey
           })
+        } else {
+          console.warn(`[FCL→ZL2] Unknown keycode: ${keycode}, skipping`)
         }
       })
     }
 
-    // 处理输入相关事件
     if (eventData.input || eventData.quickInput) {
       events.push({
         type: 'launcher_event',
@@ -245,7 +264,6 @@ export class FCLToZL2Converter {
       })
     }
 
-    // 处理文本输出
     if (eventData.outputText && eventData.outputText.trim()) {
       events.push({
         type: 'send_text',
@@ -253,28 +271,18 @@ export class FCLToZL2Converter {
       })
     }
 
-    // 处理视图组切换
     if (eventData.bindViewGroup && eventData.bindViewGroup.length > 0) {
       eventData.bindViewGroup.forEach(groupId => {
-        // 使用映射的 ZL2 层 UUID，如果找不到映射则使用原 ID
         const zl2LayerUuid = this.layerMap.get(groupId)
         if (zl2LayerUuid) {
-          events.push({
-            type: 'switch_layer',
-            key: zl2LayerUuid
-          })
+          events.push({ type: 'switch_layer', key: zl2LayerUuid })
         } else {
-          // 如果找不到映射，可能是外部引用，保持原 ID
-          console.warn(`Layer mapping not found for group ID: ${groupId}`)
-          events.push({
-            type: 'switch_layer',
-            key: groupId
-          })
+          console.warn(`[FCL→ZL2] Layer mapping not found for group ID: ${groupId}`)
+          events.push({ type: 'switch_layer', key: groupId })
         }
       })
     }
 
-    // 处理特殊启动器事件
     if (eventData.switchTouchMode) {
       events.push({
         type: 'launcher_event',
@@ -307,98 +315,64 @@ export class FCLToZL2Converter {
     const buttons: ZL2NormalButton[] = []
 
     directions.forEach(dir => {
-      // 使用 ZL2 默认移动按钮的精确布局和样式
-      const moveButtons = [
-        // 第一行
-        {
-          text: '◤',
-          uuid: this.generateUUID(),
-          position: { x: 794, y: 5411 },
-          style: 'topstart',
-          keys: [dir.event.upKeycode, dir.event.leftKeycode]
-        },
-        {
-          text: '▲',
-          uuid: this.generateUUID(),
-          position: { x: 1474, y: 5410 },
-          style: 'default',
-          keys: [dir.event.upKeycode]
-        },
-        {
-          text: '◥',
-          uuid: this.generateUUID(),
-          position: { x: 2154, y: 5410 },
-          style: 'topend',
-          keys: [dir.event.upKeycode, dir.event.rightKeycode]
-        },
-        // 第二行
-        {
-          text: '◀',
-          uuid: this.generateUUID(),
-          position: { x: 794, y: 7011 },
-          style: 'default',
-          keys: [dir.event.leftKeycode]
-        },
-        {
-          text: '',
-          uuid: this.generateUUID(),
-          position: { x: 1474, y: 7011 },
-          style: 'default',
-          keys: [] // 中心按钮，无按键
-        },
-        {
-          text: '▶',
-          uuid: this.generateUUID(),
-          position: { x: 2154, y: 7011 },
-          style: 'default',
-          keys: [dir.event.rightKeycode]
-        },
-        // 第三行
-        {
-          text: '◣',
-          uuid: this.generateUUID(),
-          position: { x: 794, y: 8611 },
-          style: 'bottomstart',
-          keys: [dir.event.downKeycode, dir.event.leftKeycode]
-        },
-        {
-          text: '▼',
-          uuid: this.generateUUID(),
-          position: { x: 1474, y: 8611 },
-          style: 'default',
-          keys: [dir.event.downKeycode]
-        },
-        {
-          text: '◢',
-          uuid: this.generateUUID(),
-          position: { x: 2154, y: 8611 },
-          style: 'bottomend',
-          keys: [dir.event.downKeycode, dir.event.rightKeycode]
-        }
+      const baseInfo = dir.baseInfo || {}
+      const dirEvent = dir.event || {} as FCLDirection['event']
+
+      const centerX = this.clampCoord(Math.round((baseInfo.xPosition || 500) * 10))
+      const centerY = this.clampCoord(Math.round((baseInfo.yPosition || 800) * 10))
+
+      let btnSize = 1380
+      if (baseInfo.sizeType !== 'ABSOLUTE' && baseInfo.percentageWidth?.size) {
+        btnSize = Math.max(ZL2_LIMITS.MIN_PERCENTAGE, Math.round(baseInfo.percentageWidth.size * 10 / 3))
+      }
+      btnSize = Math.min(btnSize, 2000)
+
+      const offset = Math.round(btnSize * 1.05)
+
+      const rawUp: number[] = Array.isArray(dirEvent.upKeycode) ? dirEvent.upKeycode : [dirEvent.upKeycode || 17]
+      const rawDown: number[] = Array.isArray(dirEvent.downKeycode) ? dirEvent.downKeycode : [dirEvent.downKeycode || 31]
+      const rawLeft: number[] = Array.isArray(dirEvent.leftKeycode) ? dirEvent.leftKeycode : [dirEvent.leftKeycode || 30]
+      const rawRight: number[] = Array.isArray(dirEvent.rightKeycode) ? dirEvent.rightKeycode : [dirEvent.rightKeycode || 32]
+
+      const moveButtons: Array<{ text: string; dx: number; dy: number; keys: number[]; style: string }> = [
+        { text: '\u25E4', dx: -offset, dy: -offset, keys: [...rawUp, ...rawLeft], style: 'topstart' },
+        { text: '\u25B2', dx: 0, dy: -offset, keys: rawUp, style: 'default' },
+        { text: '\u25E7', dx: offset, dy: -offset, keys: [...rawUp, ...rawRight], style: 'topend' },
+        { text: '\u25C0', dx: -offset, dy: 0, keys: rawLeft, style: 'default' },
+        { text: '', dx: 0, dy: 0, keys: [] as number[], style: 'default' },
+        { text: '\u25B6', dx: offset, dy: 0, keys: rawRight, style: 'default' },
+        { text: '\u25E3', dx: -offset, dy: offset, keys: [...rawDown, ...rawLeft], style: 'bottomstart' },
+        { text: '\u25BC', dx: 0, dy: offset, keys: rawDown, style: 'default' },
+        { text: '\u25E2', dx: offset, dy: offset, keys: [...rawDown, ...rawRight], style: 'bottomend' },
       ]
 
-      moveButtons.forEach(btn => {
+      moveButtons.forEach(btnDef => {
+        const pos = {
+          x: this.clampCoord(centerX + btnDef.dx),
+          y: this.clampCoord(centerY + btnDef.dy)
+        }
+
         buttons.push({
-          text: this.createTranslatableString(btn.text),
-          uuid: btn.uuid,
-          position: btn.position,
+          text: this.createTranslatableString(btnDef.text),
+          uuid: this.generateUUID(),
+          position: pos,
           buttonSize: {
             type: 'percentage',
             widthDp: 50.0,
             heightDp: 50.0,
-            widthPercentage: 1380,
-            heightPercentage: 1380,
+            widthPercentage: btnSize,
+            heightPercentage: btnSize,
             widthReference: 'screen_height',
             heightReference: 'screen_height'
           },
-          buttonStyle: btn.style,
+          buttonStyle: btnDef.style,
           textAlignment: 'Center',
           textBold: false,
           textItalic: false,
           textUnderline: false,
-          visibilityType: this.convertVisibilityType(dir.baseInfo.visibilityType),
-          clickEvents: btn.keys.map(key => ({
-            type: 'key',
+          visibilityType: this.convertVisibilityType(baseInfo.visibilityType),
+          clickEvents: btnDef.keys.map(key => ({
+            type: 'key' as const,
             key: this.convertKeycode(key) || 'GLFW_KEY_W'
           })),
           isSwipple: true,
@@ -414,11 +388,9 @@ export class FCLToZL2Converter {
   private convertStyles(fcl: FCLController): ZL2ButtonStyle[] {
     const styles: ZL2ButtonStyle[] = []
 
-    // 添加 ZL2 默认样式
     this.addDefaultZL2Styles(styles)
 
-    // 转换 FCL 样式
-    fcl.buttonStyles.forEach(style => {
+    ;(fcl.buttonStyles || []).forEach(style => {
       const uuid = this.generateUUID()
       this.styleMap.set(style.name, uuid)
 
@@ -426,6 +398,7 @@ export class FCLToZL2Converter {
         name: style.name,
         uuid: uuid,
         animateSwap: false,
+        commonStyle: false,
         lightStyle: this.convertStyleConfig(style),
         darkStyle: this.convertStyleConfig(style)
       })
@@ -436,49 +409,17 @@ export class FCLToZL2Converter {
 
   private addDefaultZL2Styles(styles: ZL2ButtonStyle[]): void {
     const defaultStyles = [
-      {
-        name: 'topend',
-        uuid: '21b054786830',
-        borderRadius: { topStart: 0.0, topEnd: 40.0, bottomEnd: 0.0, bottomStart: 0.0 }
-      },
-      {
-        name: 'topstart',
-        uuid: '43f4fb63f80a',
-        borderRadius: { topStart: 40.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 }
-      },
-      {
-        name: 'bottomend',
-        uuid: '0fa337d97f90',
-        borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 40.0, bottomStart: 0.0 }
-      },
-      {
-        name: 'bottomstart',
-        uuid: 'a5824dc0029d',
-        borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 40.0 }
-      },
-      {
-        name: 'end',
-        uuid: 'd8cd25b80d5d',
-        borderRadius: { topStart: 0.0, topEnd: 40.0, bottomEnd: 40.0, bottomStart: 0.0 }
-      },
-      {
-        name: 'start',
-        uuid: 'ea3ab7bc621f',
-        borderRadius: { topStart: 40.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 40.0 }
-      },
-      {
-        name: 'rounded',
-        uuid: 'cac8c754ffa0',
-        borderRadius: { topStart: 40.0, topEnd: 40.0, bottomEnd: 40.0, bottomStart: 40.0 }
-      },
-      {
-        name: 'default',
-        uuid: 'd1096cf91caa',
-        borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 }
-      }
+      { name: 'topend', uuid: '21b054786830', br: { topStart: 0.0, topEnd: 40.0, bottomEnd: 0.0, bottomStart: 0.0 } },
+      { name: 'topstart', uuid: '43f4fb63f80a', br: { topStart: 40.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 } },
+      { name: 'bottomend', uuid: '0fa337d97f90', br: { topStart: 0.0, topEnd: 0.0, bottomEnd: 40.0, bottomStart: 0.0 } },
+      { name: 'bottomstart', uuid: 'a5824dc0029d', br: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 40.0 } },
+      { name: 'end', uuid: 'd8cd25b80d5d', br: { topStart: 0.0, topEnd: 40.0, bottomEnd: 40.0, bottomStart: 0.0 } },
+      { name: 'start', uuid: 'ea3ab7bc621f', br: { topStart: 40.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 40.0 } },
+      { name: 'rounded', uuid: 'cac8c754ffa0', br: { topStart: 40.0, topEnd: 40.0, bottomEnd: 40.0, bottomStart: 40.0 } },
+      { name: 'default', uuid: 'd1096cf91caa', br: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 } },
     ]
 
-    defaultStyles.forEach(styleConfig => {
+    defaultStyles.forEach(s => {
       const baseStyle = {
         alpha: this.clamp(1.0, ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
         pressedAlpha: this.clamp(1.0, ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
@@ -492,49 +433,79 @@ export class FCLToZL2Converter {
         pressedBorderWidth: this.clamp(0, ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
         borderColor: SAFE_ZL2_COLORS.WHITE,
         pressedBorderColor: SAFE_ZL2_COLORS.WHITE,
-        borderRadius: styleConfig.borderRadius,
-        pressedBorderRadius: styleConfig.borderRadius
+        borderRadius: s.br,
+        pressedBorderRadius: s.br
       }
 
       styles.push({
-        name: styleConfig.name,
-        uuid: styleConfig.uuid,
+        name: s.name,
+        uuid: s.uuid,
         animateSwap: false,
+        commonStyle: false,
         lightStyle: baseStyle,
         darkStyle: baseStyle
       })
 
-      // 建立样式映射
-      this.styleMap.set(styleConfig.name, styleConfig.uuid)
+      this.styleMap.set(s.name, s.uuid)
     })
   }
 
   private convertStyleConfig(fclStyle: FCLButtonStyle): ZL2ButtonStyle['lightStyle'] {
-    return {
-      alpha: this.clamp(this.calculateAlpha(fclStyle.fillColor), ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
-      pressedAlpha: this.clamp(this.calculateAlpha(fclStyle.fillColorPressed), ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
-      backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
-      pressedBackgroundColor: SAFE_ZL2_COLORS.GRAY,
-      contentColor: SAFE_ZL2_COLORS.WHITE,
-      pressedContentColor: SAFE_ZL2_COLORS.WHITE,
-      fontSize: fclStyle.textSize ? this.clamp(fclStyle.textSize, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
-      pressedFontSize: fclStyle.textSizePressed ? this.clamp(fclStyle.textSizePressed, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
-      borderWidth: this.clamp(Math.round(fclStyle.strokeWidth / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
-      pressedBorderWidth: this.clamp(Math.round(fclStyle.strokeWidthPressed / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
-      borderColor: SAFE_ZL2_COLORS.WHITE,
-      pressedBorderColor: SAFE_ZL2_COLORS.WHITE,
-      borderRadius: {
-        topStart: fclStyle.cornerRadius / 10,
-        topEnd: fclStyle.cornerRadius / 10,
-        bottomEnd: fclStyle.cornerRadius / 10,
-        bottomStart: fclStyle.cornerRadius / 10
-      },
-      pressedBorderRadius: {
-        topStart: fclStyle.cornerRadiusPressed / 10,
-        topEnd: fclStyle.cornerRadiusPressed / 10,
-        bottomEnd: fclStyle.cornerRadiusPressed / 10,
-        bottomStart: fclStyle.cornerRadiusPressed / 10
+    try {
+      return {
+        alpha: this.clamp(this.calculateAlpha(fclStyle.fillColor), ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
+        pressedAlpha: this.clamp(this.calculateAlpha(fclStyle.fillColorPressed), ZL2_LIMITS.ALPHA.MIN, ZL2_LIMITS.ALPHA.MAX),
+        backgroundColor: this.fclColorToZl2(fclStyle.fillColor ?? 0),
+        pressedBackgroundColor: this.fclColorToZl2(fclStyle.fillColorPressed ?? 0),
+        contentColor: this.fclColorToZl2(fclStyle.textColor ?? -1),
+        pressedContentColor: this.fclColorToZl2(fclStyle.textColorPressed ?? -1),
+        fontSize: fclStyle.textSize ? this.clamp(fclStyle.textSize, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
+        pressedFontSize: fclStyle.textSizePressed ? this.clamp(fclStyle.textSizePressed, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
+        borderWidth: this.clamp(Math.round((fclStyle.strokeWidth || 0) / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
+        pressedBorderWidth: this.clamp(Math.round((fclStyle.strokeWidthPressed || 0) / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
+        borderColor: this.fclColorToZl2(fclStyle.strokeColor ?? -12303292),
+        pressedBorderColor: this.fclColorToZl2(fclStyle.strokeColorPressed ?? -12303292),
+        borderRadius: {
+          topStart: ((fclStyle.cornerRadius || 0) / 10),
+          topEnd: ((fclStyle.cornerRadius || 0) / 10),
+          bottomEnd: ((fclStyle.cornerRadius || 0) / 10),
+          bottomStart: ((fclStyle.cornerRadius || 0) / 10)
+        },
+        pressedBorderRadius: {
+          topStart: ((fclStyle.cornerRadiusPressed || 0) / 10),
+          topEnd: ((fclStyle.cornerRadiusPressed || 0) / 10),
+          bottomEnd: ((fclStyle.cornerRadiusPressed || 0) / 10),
+          bottomStart: ((fclStyle.cornerRadiusPressed || 0) / 10)
+        }
       }
+    } catch (err) {
+      console.warn('[FCL→ZL2] Style color conversion failed, using safe fallback:', err)
+      return {
+        alpha: 1.0,
+        pressedAlpha: 1.0,
+        backgroundColor: SAFE_ZL2_COLORS.TRANSPARENT_BLACK,
+        pressedBackgroundColor: SAFE_ZL2_COLORS.GRAY,
+        contentColor: SAFE_ZL2_COLORS.WHITE,
+        pressedContentColor: SAFE_ZL2_COLORS.WHITE,
+        fontSize: fclStyle.textSize ? this.clamp(fclStyle.textSize, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
+        pressedFontSize: fclStyle.textSizePressed ? this.clamp(fclStyle.textSizePressed, ZL2_LIMITS.FONT_SIZE.MIN, ZL2_LIMITS.FONT_SIZE.MAX) : null,
+        borderWidth: this.clamp(Math.round((fclStyle.strokeWidth || 0) / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
+        pressedBorderWidth: this.clamp(Math.round((fclStyle.strokeWidthPressed || 0) / 10), ZL2_LIMITS.BORDER_WIDTH.MIN, ZL2_LIMITS.BORDER_WIDTH.MAX),
+        borderColor: SAFE_ZL2_COLORS.WHITE,
+        pressedBorderColor: SAFE_ZL2_COLORS.WHITE,
+        borderRadius: { topStart: 0, topEnd: 0, bottomEnd: 0, bottomStart: 0 },
+        pressedBorderRadius: { topStart: 0, topEnd: 0, bottomEnd: 0, bottomStart: 0 }
+      }
+    }
+  }
+
+  private fclColorToZl2(fclColor: number): string {
+    try {
+      const unsigned = fclColor >>> 0
+      const longVal = BigInt(unsigned) << 32n
+      return longVal.toString()
+    } catch {
+      return SAFE_ZL2_COLORS.WHITE
     }
   }
 
@@ -543,7 +514,6 @@ export class FCLToZL2Converter {
   }
 
   private calculateAlpha(color: number): number {
-    // 从 ARGB 颜色中提取 alpha 通道
     const alpha = (color >>> 24) & 0xFF
     return alpha / 255
   }

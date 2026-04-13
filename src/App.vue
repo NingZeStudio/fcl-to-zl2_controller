@@ -370,6 +370,11 @@ function convert() {
         throw new Error('无效的 FCL 配置：缺少关键字段 viewGroups')
       }
 
+      // 验证 controllerVersion（警告但不阻止转换）
+      if (fclController.controllerVersion && fclController.controllerVersion > 21) {
+        console.warn(`[FCL] controllerVersion=${fclController.controllerVersion} 超出已知最大版本 21，可能存在不兼容的字段`)
+      }
+
       currentId.value = fclController.id || 'unknown'
       const zl2Layout = fclToZl2.convert(fclController)
       
@@ -404,7 +409,12 @@ function convert() {
         throw new Error('无效的 ZL2 配置：缺少关键字段 layers')
       }
 
-      currentId.value = zl2Layout.info.name.default.toLowerCase().replace(/\s+/g, '_') || 'converted_fcl'
+      // 验证 editorVersion（警告但不阻止转换）
+      if (zl2Layout.editorVersion && zl2Layout.editorVersion > 11) {
+        console.warn(`[ZL2] editorVersion=${zl2Layout.editorVersion} 超出当前支持的最大版本 11，可能存在不兼容的字段`)
+      }
+
+      currentId.value = (zl2Layout.info?.name?.default || 'converted_fcl').toLowerCase().replace(/\s+/g, '_')
       const fclController = zl2ToFcl.convert(zl2Layout)
       // 使用生成的 FCL ID 作为下载文件名的一部分
       currentId.value = fclController.id
@@ -423,7 +433,12 @@ function convert() {
       }
     }
   } catch (error) {
-    inputError.value = error instanceof Error ? error.message : '转换失败'
+    const err = error as Error
+    if (err.name === 'ConversionError') {
+      inputError.value = `转换错误: ${err.message}`
+    } else {
+      inputError.value = err.message || '转换失败'
+    }
   } finally {
     converting.value = false
     if (!inputError.value) {
@@ -547,13 +562,22 @@ function loadExample() {
       description: "这是一个示例控制器配置",
       version: "1.0.0",
       versionCode: 1,
-      controllerVersion: 3,
+      controllerVersion: 21,
       buttonStyles: [
         {
           name: "default",
           textColor: -1,
+          textSize: 12,
+          strokeWidth: 10,
           strokeColor: -12303292,
-          fillColor: 0
+          cornerRadius: 100,
+          fillColor: 0,
+          textColorPressed: -1,
+          textSizePressed: 12,
+          strokeWidthPressed: 10,
+          strokeColorPressed: -12303292,
+          cornerRadiusPressed: 100,
+          fillColorPressed: -3355444
         }
       ],
       directionStyles: [],
@@ -569,14 +593,20 @@ function loadExample() {
                 text: "跳跃",
                 style: "default",
                 baseInfo: {
+                  visibilityType: "ALWAYS",
                   xPosition: 850,
                   yPosition: 700,
                   sizeType: "PERCENTAGE",
-                  percentageWidth: { reference: "SCREEN_WIDTH", size: 60 },
-                  percentageHeight: { reference: "SCREEN_WIDTH", size: 60 }
+                  percentageWidth: { reference: "SCREEN_HEIGHT", size: 140 },
+                  percentageHeight: { reference: "SCREEN_HEIGHT", size: 140 }
                 },
                 event: {
-                  pressEvent: { outputKeycodes: [57] }
+                  pointerFollow: false,
+                  Movable: false,
+                  pressEvent: { outputKeycodes: [57] },
+                  longPressEvent: { outputKeycodes: [], autoKeep: false, autoClick: false, openMenu: false, switchTouchMode: false, switchMouseMode: false, input: false, quickInput: false, outputText: "", bindViewGroup: [] },
+                  clickEvent: { outputKeycodes: [], autoKeep: false, autoClick: false, openMenu: false, switchTouchMode: false, switchMouseMode: false, input: false, quickInput: false, outputText: "", bindViewGroup: [] },
+                  doubleClickEvent: { outputKeycodes: [], autoKeep: false, autoClick: false, openMenu: false, switchTouchMode: false, switchMouseMode: false, input: false, quickInput: false, outputText: "", bindViewGroup: [] }
                 }
               }
             ],
@@ -585,17 +615,21 @@ function loadExample() {
                 id: "dir-move",
                 style: "default",
                 baseInfo: {
+                  visibilityType: "IN_GAME",
                   xPosition: 150,
-                  yPosition: 700,
+                  yPosition: 800,
                   sizeType: "PERCENTAGE",
-                  percentageWidth: { reference: "SCREEN_WIDTH", size: 120 },
-                  percentageHeight: { reference: "SCREEN_WIDTH", size: 120 }
+                  percentageWidth: { reference: "SCREEN_HEIGHT", size: 450 },
+                  percentageHeight: { reference: "SCREEN_HEIGHT", size: 450 }
                 },
                 event: {
-                  upKeycode: 17,
-                  downKeycode: 31,
-                  leftKeycode: 29,
-                  rightKeycode: 32
+                  upKeycode: [17],
+                  downKeycode: [31],
+                  leftKeycode: [30],
+                  rightKeycode: [32],
+                  followOption: "CENTER_FOLLOW",
+                  sneak: true,
+                  sneakKeycode: 42
                 }
               }
             ]
@@ -617,6 +651,10 @@ function loadExample() {
           name: "主层",
           uuid: "layer-main",
           hide: false,
+          hideWhenMouse: true,
+          hideWhenGamepad: true,
+          hideWhenJoystick: false,
+          visibilityType: "always",
           normalButtons: [
             {
               text: { default: "跳跃", matchQueue: [] },
@@ -624,23 +662,68 @@ function loadExample() {
               position: { x: 8500, y: 7000 },
               buttonSize: {
                 type: "percentage",
-                widthPercentage: 600,
-                heightPercentage: 600,
-                widthReference: "screen_width",
-                heightReference: "screen_width"
+                widthDp: 50.0,
+                heightDp: 50.0,
+                widthPercentage: 1400,
+                heightPercentage: 1400,
+                widthReference: "screen_height",
+                heightReference: "screen_height"
               },
-              buttonStyle: "style-default",
-              clickEvents: [{ type: "key", key: "GLFW_KEY_SPACE" }]
+              buttonStyle: "d1096cf91caa",
+              visibilityType: "always",
+              clickEvents: [{ type: "key", key: "GLFW_KEY_SPACE" }],
+              isSwipple: false,
+              isPenetrable: false,
+              isToggleable: false
             }
-          ]
+          ],
+          textBoxes: []
         }
       ],
       styles: [
         {
-          uuid: "style-default",
-          lightStyle: { backgroundColor: -9223372036854775808 }
+          name: "default",
+          uuid: "d1096cf91caa",
+          animateSwap: false,
+          commonStyle: false,
+          lightStyle: {
+            alpha: 1.0,
+            pressedAlpha: 1.0,
+            backgroundColor: -9223372036854775808,
+            pressedBackgroundColor: -5510004026390872064,
+            contentColor: -4294967296,
+            pressedContentColor: -4294967296,
+            fontSize: null,
+            pressedFontSize: null,
+            borderWidth: 0,
+            pressedBorderWidth: 0,
+            borderColor: -4294967296,
+            pressedBorderColor: -4294967296,
+            borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 },
+            pressedBorderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 }
+          },
+          darkStyle: {
+            alpha: 1.0,
+            pressedAlpha: 1.0,
+            backgroundColor: -9223372036854775808,
+            pressedBackgroundColor: -5510004026390872064,
+            contentColor: -4294967296,
+            pressedContentColor: -4294967296,
+            fontSize: null,
+            pressedFontSize: null,
+            borderWidth: 0,
+            pressedBorderWidth: 0,
+            borderColor: -4294967296,
+            pressedBorderColor: -4294967296,
+            borderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 },
+            pressedBorderRadius: { topStart: 0.0, topEnd: 0.0, bottomEnd: 0.0, bottomStart: 0.0 }
+          }
         }
-      ]
+      ],
+      special: {
+        joystickStyle: null
+      },
+      editorVersion: 11
     }, null, 2)
   }
 }

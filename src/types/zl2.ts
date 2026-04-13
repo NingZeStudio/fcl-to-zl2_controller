@@ -9,7 +9,7 @@ export interface ZL2ControlLayout {
 }
 
 export interface ZL2SpecialConfig {
-  defaultJoystickStyle: ZL2JoystickStyle
+  joystickStyle: ZL2JoystickStyle | null
 }
 
 export interface ZL2JoystickStyle {
@@ -45,6 +45,7 @@ export interface ZL2Layer {
   hide: boolean
   hideWhenMouse: boolean
   hideWhenGamepad: boolean
+  hideWhenJoystick: boolean
   visibilityType: 'always' | 'in_game' | 'in_menu'
   normalButtons: ZL2NormalButton[]
   textBoxes: ZL2TextBox[]
@@ -105,6 +106,7 @@ export interface ZL2ButtonStyle {
   name: string
   uuid: string
   animateSwap: boolean
+  commonStyle: boolean
   lightStyle: ZL2StyleConfig
   darkStyle: ZL2StyleConfig
 }

@@ -1,680 +1,668 @@
 # FCL 控件系统开发文档
 
 ## 目录
-1. [系统架构概述](#系统架构概述)
-2. [控件系统工作原理](#控件系统工作原理)
-3. [JSON配置结构详解](#json配置结构详解)
-4. [核心数据类详解](#核心数据类详解)
-5. [事件处理机制](#事件处理机制)
-6. [开发指南](#开发指南)
+1. [系统概述](#系统概述)
+2. [数据结构总览](#数据结构总览)
+3. [完整数据结构定义](#完整数据结构定义)
+4. [FCL 键码映射表](#fcl-键码映射表)
+5. [颜色值说明](#颜色值说明)
+6. [坐标系与尺寸系统](#坐标系与尺寸系统)
+7. [完整 JSON 示例](#完整-json-示例)
 
 ---
 
-## 系统架构概述
+## 系统概述
 
-FCL（Fold Craft Launcher）的控件系统是一个用于在Android设备上模拟键盘鼠标操作的虚拟控制器系统，主要用于在移动设备上玩Minecraft等PC游戏。
+FCL（Fold Craft Launcher）控件系统是一个用于在 Android 设备上模拟键盘鼠标操作的虚拟控制器系统，主要服务于 Minecraft 等 PC 游戏在移动端的操控需求。
 
-### 核心组件层次结构
+### 核心组件层次
 
 ```
 Controller (控制器)
-├── ViewGroup (视图组)
-│   ├── ViewData (视图数据)
-│   │   ├── ControlButtonData[] (按钮数据列表)
-│   │   └── ControlDirectionData[] (方向键数据列表)
-├── ButtonStyles[] (按钮样式集合)
-└── DirectionStyles[] (方向键样式集合)
+├── buttonStyles: ControlButtonStyle[]     (按钮样式)
+├── directionStyles: ControlDirectionStyle[] (方向键样式)
+└── viewGroups: ControlViewGroup[]         (视图组)
+    └── viewData: ViewData
+        ├── buttonList: ControlButtonData[]  (按钮列表)
+        └── directionList: ControlDirectionData[] (方向键列表)
 ```
 
-### 主要包结构
+### 版本常量
 
-- `com.tungsten.fcl.setting` - 控制器配置和管理
-- `com.tungsten.fcl.control.data` - 控件数据模型
-- `com.tungsten.fcl.control.view` - 控件视图实现
-- `com.tungsten.fcl.control` - 输入处理和事件管理
+| 常量 | 值 | 说明 |
+|------|---|------|
+| CONTROLLER_VERSION | 21 | 当前控制器格式版本 |
+| MIN_CONTROLLER_VERSION | 0 | 最低兼容版本 |
 
 ---
 
-## 控件系统工作原理
+## 数据结构总览
 
-### 1. 控制器加载流程
+### 1. Controller (控制器根对象)
 
-```
-1. 从 FCLPath.CONTROLLER_DIR 读取 JSON 文件
-2. 使用 Gson 反序列化为 Controller 对象
-3. 检查控制器版本兼容性
-4. 加载按钮和方向键样式
-5. 初始化所有 ViewGroup
-6. 渲染控件到游戏界面
-```
-
-### 2. 输入事件处理流程
-
-```
-用户触摸屏幕
-    ↓
-ControlButton/ControlDirection 捕获触摸事件
-    ↓
-根据 EventData 配置处理事件
-    ↓
-FCLInput 转换为游戏输入
-    ↓
-通过 FCLBridge 发送到游戏进程
-    ↓
-游戏接收键盘/鼠标事件
-```
-
-### 3. ViewManager 管理机制
-
-ViewManager 负责：
-- 初始化和销毁控件视图
-- 管理控件的显示/隐藏状态
-- 处理编辑模式和游戏模式的切换
-- 保存控制器配置到磁盘
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | String | 是 | 控制器ID (8位随机字符串) |
+| name | String | 是 | 控制器名称 |
+| version | String | 否 | 版本号 |
+| versionCode | int | 否 | 版本代码 |
+| author | String | 否 | 作者 |
+| description | String | 否 | 描述 |
+| controllerVersion | int | 是 | 控制器版本 (当前为21) |
+| buttonStyles | Array | 是 | 按钮样式列表 |
+| directionStyles | Array | 是 | 方向键样式列表 |
+| viewGroups | Array | 是 | 视图组列表 |
 
 ---
 
-## JSON配置结构详解
+## 完整数据结构定义
 
-### 完整的控制器JSON结构
+### 2. ControlViewGroup (视图组)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 视图组ID (UUID) |
+| name | String | 视图组名称 |
+| visibility | Visibility | 可见性: VISIBLE / INVISIBLE |
+| viewData | ViewData | 视图数据 |
+
+### 3. ViewData (视图数据)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| buttonList | Array<ControlButtonData> | 按钮列表 |
+| directionList | Array<ControlDirectionData> | 方向键列表 |
+
+### 4. ControlButtonData (按钮数据)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 按钮ID (UUID) |
+| text | String | 按钮显示文本 |
+| style | String | 按钮样式名称 (引用 buttonStyles 中的 name) |
+| baseInfo | BaseInfoData | 基础信息 |
+| event | ButtonEventData | 事件配置 |
+
+### 5. ControlDirectionData (方向键数据)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 方向键ID (UUID) |
+| style | String | 方向键样式名称 (引用 directionStyles 中的 name) |
+| baseInfo | BaseInfoData | 基础信息 |
+| event | DirectionEventData | 事件配置 |
+
+### 6. BaseInfoData (基础信息)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| visibilityType | VisibilityType | 可见性类型 |
+| xPosition | int | X坐标 (0-1000，实际值*10) |
+| yPosition | int | Y坐标 (0-1000，实际值*10) |
+| sizeType | SizeType | 尺寸类型: PERCENTAGE / ABSOLUTE |
+| absoluteWidth | int | 绝对宽度 (DP) |
+| absoluteHeight | int | 绝对高度 (DP) |
+| percentageWidth | PercentageSize | 百分比宽度 |
+| percentageHeight | PercentageSize | 百分比高度 |
+
+**枚举值**:
+
+```java
+// VisibilityType - 可见性类型
+ALWAYS,    // 始终显示
+IN_GAME,   // 游戏中显示
+MENU       // 菜单中显示
+
+// SizeType - 尺寸类型
+PERCENTAGE,  // 百分比尺寸
+ABSOLUTE     // 绝对尺寸 (DP)
+
+// PercentageSize.Reference - 百分比参考
+SCREEN_WIDTH,   // 基于屏幕宽度
+SCREEN_HEIGHT   // 基于屏幕高度
+```
+
+### 7. PercentageSize (百分比尺寸)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| reference | Reference | 参考类型: SCREEN_WIDTH / SCREEN_HEIGHT |
+| size | int | 尺寸值 (实际值*10) |
+
+### 8. ButtonEventData (按钮事件数据)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| pointerFollow | boolean | 指针跟随 |
+| movable | boolean | 可移动 |
+| pressEvent | Event | 按下事件 |
+| longPressEvent | Event | 长按事件 |
+| clickEvent | Event | 单击事件 |
+| doubleClickEvent | Event | 双击事件 |
+
+### 9. Event (事件详情)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| autoKeep | boolean | 保持按下 (开关模式) |
+| autoClick | boolean | 自动点击 |
+| openMenu | boolean | 打开菜单 |
+| switchTouchMode | boolean | 切换触摸模式 |
+| switchMouseMode | boolean | 切换鼠标模式 |
+| input | boolean | 输入文本 |
+| quickInput | boolean | 快速输入 |
+| outputText | String | 输出文本 |
+| outputKeycodes | Array\<int\> | 输出键码列表 |
+| bindViewGroup | Array\<String\> | 绑定视图组ID列表 |
+
+### 10. DirectionEventData (方向键事件数据)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| upKeycode | Array\<int\> | 上键码列表 |
+| downKeycode | Array\<int\> | 下键码列表 |
+| leftKeycode | Array\<int\> | 左键码列表 |
+| rightKeycode | Array\<int\> | 右键码列表 |
+| followOption | FollowOption | 跟随选项 |
+| sneak | boolean | 双击中心启用潜行 |
+| sneakKeycode | int | 潜行键码 |
+
+**FollowOption 枚举**:
+```java
+FIXED,         // 固定
+CENTER_FOLLOW,  // 中心跟随
+FOLLOW          // 跟随
+```
+
+**默认值**:
+```java
+upKeycode = [17]       // KEY_W
+downKeycode = [31]     // KEY_S
+leftKeycode = [30]     // KEY_A
+rightKeycode = [32]    // KEY_D
+followOption = CENTER_FOLLOW
+sneak = true
+sneakKeycode = 42       // KEY_LEFTSHIFT
+```
+
+### 11. ControlButtonStyle (按钮样式)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| name | String | 样式名称 |
+| textColor | int | 文字颜色 (ARGB) |
+| textSize | int | 文字大小 (sp) |
+| strokeWidth | int | 边框宽度 (实际值*10) |
+| strokeColor | int | 边框颜色 (ARGB) |
+| cornerRadius | int | 圆角半径 (实际值*10) |
+| fillColor | int | 填充颜色 (ARGB) |
+| textColorPressed | int | 按下时文字颜色 |
+| textSizePressed | int | 按下时文字大小 |
+| strokeWidthPressed | int | 按下时边框宽度 |
+| strokeColorPressed | int | 按下时边框颜色 |
+| cornerRadiusPressed | int | 按下时圆角半径 |
+| fillColorPressed | int | 按下时填充颜色 |
+
+### 12. ControlDirectionStyle (方向键样式)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| name | String | 样式名称 |
+| styleType | Type | 类型: BUTTON / ROCKER |
+| buttonStyle | ButtonStyle | 按钮样式 (8方向) |
+| rockerStyle | RockerStyle | 摇杆样式 |
+
+**Type 枚举**:
+```java
+BUTTON,   // 按钮式方向键
+ROCKER    // 摇杆式方向键
+```
+
+### 13. ButtonStyle (方向键按钮样式)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| interval | int | 按钮间隔 (实际值*10) |
+| textColor | int | 文字颜色 |
+| textSize | int | 文字大小 |
+| strokeWidth | int | 边框宽度 |
+| strokeColor | int | 边框颜色 |
+| cornerRadius | int | 圆角半径 |
+| fillColor | int | 填充颜色 |
+| textColorPressed | int | 按下时文字颜色 |
+| textSizePressed | int | 按下时文字大小 |
+| strokeWidthPressed | int | 按下时边框宽度 |
+| strokeColorPressed | int | 按下时边框颜色 |
+| cornerRadiusPressed | int | 按下时圆角半径 |
+| fillColorPressed | int | 按下时填充颜色 |
+
+### 14. RockerStyle (摇杆样式)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| rockerSize | int | 摇杆尺寸 (实际值*10, 100-900) |
+| bgCornerRadius | int | 背景圆角 (实际值*10, 0-500) |
+| bgStrokeWidth | int | 背景边框宽度 |
+| bgStrokeColor | int | 背景边框颜色 |
+| bgFillColor | int | 背景填充颜色 |
+| rockerCornerRadius | int | 摇杆圆角 |
+| rockerStrokeWidth | int | 摇杆边框宽度 |
+| rockerStrokeColor | int | 摇杆边框颜色 |
+| rockerFillColor | int | 摇杆填充颜色 |
+
+---
+
+## FCL 键码映射表
+
+### 键盘键码 (FCLKeycodes)
+
+| 键名 | 值 | 说明 |
+|------|---|------|
+| KEY_RESERVED | 0 | 保留 |
+| KEY_ESC | 1 | 退出 |
+| KEY_1 | 2 | 数字1 |
+| KEY_2 | 3 | 数字2 |
+| KEY_3 | 4 | 数字3 |
+| KEY_4 | 5 | 数字4 |
+| KEY_5 | 6 | 数字5 |
+| KEY_6 | 7 | 数字6 |
+| KEY_7 | 8 | 数字7 |
+| KEY_8 | 9 | 数字8 |
+| KEY_9 | 10 | 数字9 |
+| KEY_0 | 11 | 数字0 |
+| KEY_MINUS | 12 | 减号 |
+| KEY_EQUAL | 13 | 等号 |
+| KEY_BACKSPACE | 14 | 退格 |
+| KEY_TAB | 15 | Tab |
+| KEY_Q | 16 | Q |
+| KEY_W | 17 | W |
+| KEY_E | 18 | E |
+| KEY_R | 19 | R |
+| KEY_T | 20 | T |
+| KEY_Y | 21 | Y |
+| KEY_U | 22 | U |
+| KEY_I | 23 | I |
+| KEY_O | 24 | O |
+| KEY_P | 25 | P |
+| KEY_LEFTBRACE | 26 | 左括号 |
+| KEY_RIGHTBRACE | 27 | 右括号 |
+| KEY_ENTER | 28 | 回车 |
+| KEY_LEFTCTRL | 29 | 左Ctrl |
+| KEY_A | 30 | A |
+| KEY_S | 31 | S |
+| KEY_D | 32 | D |
+| KEY_F | 33 | F |
+| KEY_G | 34 | G |
+| KEY_H | 35 | H |
+| KEY_J | 36 | J |
+| KEY_K | 37 | K |
+| KEY_L | 38 | L |
+| KEY_SEMICOLON | 39 | 分号 |
+| KEY_APOSTROPHE | 40 | 单引号 |
+| KEY_GRAVE | 41 | 重音 |
+| KEY_LEFTSHIFT | 42 | 左Shift |
+| KEY_BACKSLASH | 43 | 反斜杠 |
+| KEY_Z | 44 | Z |
+| KEY_X | 45 | X |
+| KEY_C | 46 | C |
+| KEY_V | 47 | V |
+| KEY_B | 48 | B |
+| KEY_N | 49 | N |
+| KEY_M | 50 | M |
+| KEY_COMMA | 51 | 逗号 |
+| KEY_DOT | 52 | 句号 |
+| KEY_SLASH | 53 | 斜杠 |
+| KEY_RIGHTSHIFT | 54 | 右Shift |
+| KEY_KPASTERISK | 55 | 数字键盘* |
+| KEY_LEFTALT | 56 | 左Alt |
+| KEY_SPACE | 57 | 空格 |
+| KEY_CAPSLOCK | 58 | 大写锁定 |
+| KEY_F1 | 59 | F1 |
+| KEY_F2 | 60 | F2 |
+| KEY_F3 | 61 | F3 |
+| KEY_F4 | 62 | F4 |
+| KEY_F5 | 63 | F5 |
+| KEY_F6 | 64 | F6 |
+| KEY_F7 | 65 | F7 |
+| KEY_F8 | 66 | F8 |
+| KEY_F9 | 67 | F9 |
+| KEY_F10 | 68 | F10 |
+| KEY_NUMLOCK | 69 | 数字锁定 |
+| KEY_SCROLLLOCK | 70 | 滚动锁定 |
+| KEY_KP7 | 71 | 数字键盘7 |
+| KEY_KP8 | 72 | 数字键盘8 |
+| KEY_KP9 | 73 | 数字键盘9 |
+| KEY_KPMINUS | 74 | 数字键盘- |
+| KEY_KP4 | 75 | 数字键盘4 |
+| KEY_KP5 | 76 | 数字键盘5 |
+| KEY_KP6 | 77 | 数字键盘6 |
+| KEY_KPPLUS | 78 | 数字键盘+ |
+| KEY_KP1 | 79 | 数字键盘1 |
+| KEY_KP2 | 80 | 数字键盘2 |
+| KEY_KP3 | 81 | 数字键盘3 |
+| KEY_KP0 | 82 | 数字键盘0 |
+| KEY_KPDOT | 83 | 数字键盘. |
+| KEY_F11 | 87 | F11 |
+| KEY_F12 | 88 | F12 |
+| KEY_KPENTER | 96 | 数字键盘回车 |
+| KEY_RIGHTCTRL | 97 | 右Ctrl |
+| KEY_KPSLASH | 98 | 数字键盘/ |
+| KEY_SYSRQ | 99 | 系统请求 |
+| KEY_RIGHTALT | 100 | 右Alt |
+| KEY_HOME | 102 | Home |
+| KEY_UP | 103 | 上箭头 |
+| KEY_PAGEUP | 104 | Page Up |
+| KEY_LEFT | 105 | 左箭头 |
+| KEY_RIGHT | 106 | 右箭头 |
+| KEY_END | 107 | End |
+| KEY_DOWN | 108 | 下箭头 |
+| KEY_PAGEDOWN | 109 | Page Down |
+| KEY_INSERT | 110 | 插入 |
+| KEY_DELETE | 111 | 删除 |
+| KEY_PAUSE | 119 | 暂停 |
+| KEY_KPCOMMA | 121 | 数字键盘逗号 |
+| KEY_LEFTMETA | 125 | 左Meta |
+| KEY_RIGHTMETA | 126 | 右Meta |
+| KEY_F13 | 183 | F13 |
+| KEY_F14 | 184 | F14 |
+| KEY_F15 | 185 | F15 |
+| KEY_F16 | 186 | F16 |
+| KEY_F17 | 187 | F17 |
+| KEY_F18 | 188 | F18 |
+| KEY_F19 | 189 | F19 |
+| KEY_F20 | 190 | F20 |
+| KEY_F21 | 191 | F21 |
+| KEY_F22 | 192 | F22 |
+| KEY_F23 | 193 | F23 |
+| KEY_F24 | 194 | F24 |
+
+### 鼠标键码
+
+| 键名 | 值 | 说明 |
+|------|---|------|
+| MOUSE_LEFT | 1000 | 鼠标左键 |
+| MOUSE_MIDDLE | 1001 | 鼠标中键 |
+| MOUSE_RIGHT | 1002 | 鼠标右键 |
+| MOUSE_SCROLL_UP | 1003 | 滚轮上 |
+| MOUSE_SCROLL_DOWN | 1004 | 滚轮下 |
+
+### 常用键码速查
+
+| 功能 | 键码 |
+|------|------|
+| 移动 - W | 17 |
+| 移动 - S | 31 |
+| 移动 - A | 30 |
+| 移动 - D | 32 |
+| 跳跃 - 空格 | 57 |
+| 潜行 - 左Shift | 42 |
+| 攻击/使用 - 左键 | 1000 |
+| 丢弃 - Q | 16 |
+| 物品栏 - E | 18 |
+| 聊天 - T | 20 |
+| 暂停 - ESC | 1 |
+
+---
+
+## 颜色值说明
+
+FCL 使用 Android `Color` 类颜色值 (32位有符号整数, ARGB格式)。
+
+### ARGB 格式说明
+
+```
+ARGB = Alpha + Red + Green + Blue
+A: 透明度 (00=完全透明, FF=完全不透明)
+R: 红色分量 (00-FF)
+G: 绿色分量 (00-FF)
+B: 蓝色分量 (00-FF)
+
+示例: 0xFFFFFFFF = Alpha:FF, R:FF, G:FF, B:FF = 白色
+```
+
+### 常用颜色常量
+
+| 颜色名 | 值 | 十六进制 | 说明 |
+|--------|---|----------|------|
+| WHITE | -1 | 0xFFFFFFFF | 白色 |
+| TRANSPARENT | 0 | 0x00000000 | 透明 |
+| DKGRAY | -12303292 | 0xFF444444 | 深灰 |
+| LTGRAY | -3355444 | 0xFFCCCCCC | 浅灰 |
+| GRAY | -7829368 | 0xFF888888 | 灰色 |
+
+### 颜色值转换
+
+由于 JavaScript/TypeScript 中数字精度问题，FCL 颜色值在 JSON 中需要特别处理：
+
+```javascript
+// FCL 颜色值 (32位有符号整数)
+const fclColor = -12303292;  // DKGRAY
+
+// 转换为无符号32位
+const unsigned = fclColor >>> 0;  // 4157045708
+
+// 或直接使用字符串存储
+const colorStr = "-12303292";
+```
+
+---
+
+## 坐标系与尺寸系统
+
+### FCL 坐标系统
+
+- **范围**: 0-1000 (千分比)
+- **编码方式**: 实际值 * 10 (如 500 表示 50%)
+
+### 坐标计算公式
+
+```
+屏幕像素X = (xPosition / 10) * 屏幕宽度 / 100
+屏幕像素Y = (yPosition / 10) * 屏幕高度 / 100
+```
+
+### 尺寸类型
+
+#### 百分比尺寸 (PERCENTAGE)
 
 ```json
 {
-  "id": "abc12345",
-  "name": "我的控制器",
-  "version": "1.0.0",
-  "versionCode": 1,
-  "author": "作者名",
-  "description": "控制器描述",
-  "controllerVersion": 3,
+  "sizeType": "PERCENTAGE",
+  "percentageWidth": {
+    "reference": "SCREEN_HEIGHT",
+    "size": 140
+  },
+  "percentageHeight": {
+    "reference": "SCREEN_HEIGHT",
+    "size": 140
+  }
+}
+```
+
+- `reference`: 参考尺寸类型
+  - `SCREEN_WIDTH`: 基于屏幕宽度
+  - `SCREEN_HEIGHT`: 基于屏幕高度
+- `size`: 尺寸值 (实际值*10)
+
+#### 绝对尺寸 (ABSOLUTE)
+
+```json
+{
+  "sizeType": "ABSOLUTE",
+  "absoluteWidth": 50,
+  "absoluteHeight": 50
+}
+```
+
+- 单位: DP (与屏幕密度无关)
+
+### 尺寸编码说明
+
+FCL 中某些尺寸字段使用"实际值 * 10"的编码方式：
+
+| 字段 | JSON值 | 实际值 |
+|------|--------|--------|
+| xPosition | 500 | 50.0% |
+| yPosition | 800 | 80.0% |
+| strokeWidth | 10 | 1.0dp |
+| cornerRadius | 100 | 10.0dp |
+| percentageWidth.size | 140 | 14.0% |
+
+---
+
+## 完整 JSON 示例
+
+参考文件: `FCL\src\main\assets\controllers\00000000.json`
+
+```json
+{
+  "id": "00000000",
+  "name": "Default",
+  "version": "1.2.1",
+  "versionCode": 1210,
+  "author": "Tungsten",
+  "description": "Default controller of Fold Craft Launcher.",
+  "controllerVersion": 21,
   "buttonStyles": [
     {
-      "name": "默认按钮样式",
+      "name": "Default",
       "textColor": -1,
       "textSize": 12,
-      "strokeWidth": 10,
       "strokeColor": -12303292,
+      "strokeWidth": 10,
       "cornerRadius": 100,
       "fillColor": 0,
       "textColorPressed": -1,
       "textSizePressed": 12,
+      "strokeColorPressed": -12303292,
       "strokeWidthPressed": 10,
-      "strokeColorPressedProperty": -12303292,
       "cornerRadiusPressed": 100,
       "fillColorPressed": -3355444
     }
   ],
   "directionStyles": [
     {
-      "name": "默认方向键样式",
-      "// 样式属性": "类似按钮样式"
+      "name": "Default",
+      "styleType": "BUTTON",
+      "buttonStyle": {
+        "interval": 50,
+        "textColor": -1,
+        "textSize": 12,
+        "strokeColor": -12303292,
+        "strokeWidth": 10,
+        "cornerRadius": 100,
+        "fillColor": 0,
+        "textColorPressed": -1,
+        "textSizePressed": 12,
+        "strokeColorPressed": -12303292,
+        "strokeWidthPressed": 10,
+        "cornerRadiusPressed": 100,
+        "fillColorPressed": -3355444
+      },
+      "rockerStyle": {
+        "rockerSize": 400,
+        "bgCornerRadius": 500,
+        "bgStrokeWidth": 20,
+        "bgStrokeColor": -12303292,
+        "bgFillColor": 0,
+        "rockerCornerRadius": 500,
+        "rockerStrokeWidth": 10,
+        "rockerStrokeColor": -12303292,
+        "rockerFillColor": -7829368
+      }
     }
   ],
   "viewGroups": [
     {
-      "id": "group-uuid-1",
-      "name": "主控制组",
+      "id": "abe49027-5dac-4bb9-865a-dea564664654",
+      "name": "Default",
       "visibility": "VISIBLE",
       "viewData": {
-        "buttonList": [],
-        "directionList": []
+        "buttonList": [
+          {
+            "id": "f93bfc52-e745-4277-a4db-5c85829fb35e",
+            "text": "x",
+            "style": "Default",
+            "baseInfo": {
+              "visibilityType": "ALWAYS",
+              "xPosition": 800,
+              "yPosition": 750,
+              "sizeType": "PERCENTAGE",
+              "absoluteWidth": 50,
+              "absoluteHeight": 50,
+              "percentageWidth": {
+                "reference": "SCREEN_HEIGHT",
+                "size": 140
+              },
+              "percentageHeight": {
+                "reference": "SCREEN_HEIGHT",
+                "size": 140
+              }
+            },
+            "event": {
+              "pointerFollow": true,
+              "Movable": false,
+              "pressEvent": {
+                "autoKeep": false,
+                "autoClick": false,
+                "openMenu": false,
+                "switchTouchMode": false,
+                "input": false,
+                "quickInput": false,
+                "outputText": "",
+                "outputKeycodes": [1000],
+                "bindViewGroup": []
+              },
+              "longPressEvent": {...},
+              "clickEvent": {...},
+              "doubleClickEvent": {...}
+            }
+          }
+        ],
+        "directionList": [
+          {
+            "id": "e8545a6e-3a35-4109-b2d5-9f17ff2babd0",
+            "style": "Default",
+            "baseInfo": {
+              "visibilityType": "IN_GAME",
+              "xPosition": 50,
+              "yPosition": 900,
+              "sizeType": "PERCENTAGE",
+              "absoluteWidth": 50,
+              "absoluteHeight": 50,
+              "percentageWidth": {
+                "reference": "SCREEN_HEIGHT",
+                "size": 450
+              },
+              "percentageHeight": {
+                "reference": "SCREEN_HEIGHT",
+                "size": 450
+              }
+            },
+            "event": {
+              "upKeycode": [17],
+              "downKeycode": [31],
+              "leftKeycode": [30],
+              "rightKeycode": [32],
+              "followOption": "CENTER_FOLLOW",
+              "sneak": true,
+              "sneakKeycode": 42
+            }
+          }
+        ]
       }
     }
   ]
 }
 ```
 
-### 字段说明
-
-#### Controller 根对象
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | String | 控制器唯一标识符（8位随机字符串） |
-| name | String | 控制器名称 |
-| version | String | 版本号（语义化版本） |
-| versionCode | Integer | 版本代码（整数，用于版本比较） |
-| author | String | 作者名称 |
-| description | String | 控制器描述 |
-| controllerVersion | Integer | 控制器格式版本（当前为3） |
-| buttonStyles | Array | 按钮样式数组 |
-| directionStyles | Array | 方向键样式数组 |
-| viewGroups | Array | 视图组数组 |
-
 ---
 
-## 核心数据类详解
-
-### 1. ControlViewGroup（视图组）
-
-视图组是控件的容器，可以控制一组控件的显示/隐藏。
-
-```java
-public class ControlViewGroup {
-    private String id;                    // 唯一标识
-    private String name;                  // 组名
-    private Visibility visibility;        // 初始可见性
-    private ViewData viewData;            // 视图数据
-}
-```
-
-**Visibility 枚举：**
-- `VISIBLE` - 可见
-- `INVISIBLE` - 不可见
-
-**JSON示例：**
-```json
-{
-  "id": "uuid-string",
-  "name": "移动控制",
-  "visibility": "VISIBLE",
-  "viewData": {
-    "buttonList": [...],
-    "directionList": [...]
-  }
-}
-```
-
-### 2. ControlButtonData（按钮数据）
-
-按钮是最基本的控件类型，可以模拟键盘按键或鼠标点击。
-
-```java
-public class ControlButtonData {
-    private String id;                    // 唯一标识
-    private String text;                  // 显示文本
-    private ControlButtonStyle style;     // 按钮样式
-    private BaseInfoData baseInfo;        // 基础信息（位置、大小）
-    private ButtonEventData event;        // 事件数据
-}
-```
-
-**JSON示例：**
-```json
-{
-  "id": "button-uuid",
-  "text": "W",
-  "style": "默认样式",
-  "baseInfo": {
-    "visibilityType": "ALWAYS",
-    "xPosition": 500,
-    "yPosition": 800,
-    "sizeType": "PERCENTAGE",
-    "absoluteWidth": 50,
-    "absoluteHeight": 50,
-    "percentageWidth": {
-      "reference": "SCREEN_WIDTH",
-      "size": 50
-    },
-    "percentageHeight": {
-      "reference": "SCREEN_WIDTH",
-      "size": 50
-    }
-  },
-  "event": {
-    "pointerFollow": false,
-    "Movable": false,
-    "pressEvent": {...},
-    "longPressEvent": {...},
-    "clickEvent": {...},
-    "doubleClickEvent": {...}
-  }
-}
-```
-
-### 3. BaseInfoData（基础信息）
-
-控制控件的位置、大小和可见性。
-
-**字段详解：**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| visibilityType | Enum | 可见性类型：ALWAYS（总是）、IN_GAME（游戏中）、MENU（菜单中） |
-| xPosition | Integer | X坐标（实际值的10倍，百分比） |
-| yPosition | Integer | Y坐标（实际值的10倍，百分比） |
-| sizeType | Enum | 尺寸类型：PERCENTAGE（百分比）、ABSOLUTE（绝对值） |
-| absoluteWidth | Integer | 绝对宽度（dp单位） |
-| absoluteHeight | Integer | 绝对高度（dp单位） |
-| percentageWidth | Object | 百分比宽度配置 |
-| percentageHeight | Object | 百分比高度配置 |
-
-**PercentageSize 结构：**
-```json
-{
-  "reference": "SCREEN_WIDTH",  // 参考：SCREEN_WIDTH 或 SCREEN_HEIGHT
-  "size": 50                     // 大小（实际值的10倍）
-}
-```
-
-**坐标和尺寸计算：**
-- 位置坐标：`实际坐标 = (xPosition / 10) * 屏幕宽度 / 100`
-- 百分比尺寸：`实际尺寸 = (size / 10) * 参考尺寸 / 100`
-- 绝对尺寸：直接使用 dp 值
-
-### 4. ButtonEventData（按钮事件）
-
-定义按钮的交互行为。
-
-**主要属性：**
-
-| 属性 | 类型 | 说明 |
-|------|------|------|
-| pointerFollow | Boolean | 鼠标指针跟随 |
-| Movable | Boolean | 是否可移动 |
-| pressEvent | Event | 按下事件 |
-| longPressEvent | Event | 长按事件 |
-| clickEvent | Event | 点击事件 |
-| doubleClickEvent | Event | 双击事件 |
-
-**Event 对象结构：**
-
-```json
-{
-  "autoKeep": false,           // 自动保持按下
-  "autoClick": false,          // 自动连点
-  "openMenu": false,           // 打开菜单
-  "switchTouchMode": false,    // 切换触摸模式
-  "switchMouseMode": false,    // 切换鼠标模式
-  "input": false,              // 输入文字
-  "quickInput": false,         // 快速输入
-  "outputText": "",            // 输出文本
-  "outputKeycodes": [17, 87],  // 输出键码数组
-  "bindViewGroup": []          // 绑定视图组（切换显示）
-}
-```
-
-**键码说明：**
-- 使用 FCLKeycodes 定义的键码
-- 常用键码：
-  - `17` = W键
-  - `31` = S键  
-  - `29` = A键
-  - `32` = D键
-  - `57` = 空格
-  - `42` = 左Shift
-  - 鼠标：`1000`=左键, `1001`=中键, `1002`=右键
-
-### 5. ControlDirectionData（方向键数据）
-
-方向键控件，通常用于移动控制。
-
-```java
-public class ControlDirectionData {
-    private String id;
-    private ControlDirectionStyle style;
-    private BaseInfoData baseInfo;
-    private DirectionEventData event;
-}
-```
-
-**JSON示例：**
-```json
-{
-  "id": "direction-uuid",
-  "style": "默认方向键样式",
-  "baseInfo": {...},
-  "event": {
-    "upKeycode": 17,           // W键
-    "downKeycode": 31,         // S键
-    "leftKeycode": 29,         // A键
-    "rightKeycode": 32,        // D键
-    "followOption": "CENTER_FOLLOW",
-    "sneak": true,
-    "sneakKeycode": 42         // 左Shift
-  }
-}
-```
-
-**DirectionEventData 字段：**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| upKeycode | Integer | 上方向键码 |
-| downKeycode | Integer | 下方向键码 |
-| leftKeycode | Integer | 左方向键码 |
-| rightKeycode | Integer | 右方向键码 |
-| followOption | Enum | 跟随选项：FIXED（固定）、CENTER_FOLLOW（中心跟随）、FOLLOW（完全跟随） |
-| sneak | Boolean | 双击中心启用潜行 |
-| sneakKeycode | Integer | 潜行键码 |
-
-### 6. ControlButtonStyle（按钮样式）
-
-定义按钮的视觉外观。
-
-**完整样式配置：**
-
-```json
-{
-  "name": "样式名称",
-  "textColor": -1,              // 文字颜色（ARGB整数）
-  "textSize": 12,               // 文字大小（sp）
-  "strokeWidth": 10,            // 边框宽度（实际值的10倍）
-  "strokeColor": -12303292,     // 边框颜色
-  "cornerRadius": 100,          // 圆角半径（实际值的10倍）
-  "fillColor": 0,               // 填充颜色
-  "textColorPressed": -1,       // 按下时文字颜色
-  "textSizePressed": 12,        // 按下时文字大小
-  "strokeWidthPressed": 10,     // 按下时边框宽度
-  "strokeColorPressed": -12303292,
-  "cornerRadiusPressed": 100,
-  "fillColorPressed": -3355444  // 按下时填充颜色
-}
-```
-
-**颜色值说明：**
-- 使用 Android Color 整数格式（ARGB）
-- 常用颜色：
-  - `-1` = 白色 (0xFFFFFFFF)
-  - `0` = 透明 (0x00000000)
-  - `-12303292` = 深灰色
-  - `-3355444` = 浅灰色
-
----
-
-## 事件处理机制
-
-### 1. 触摸事件流程
-
-```
-用户触摸 ControlButton
-    ↓
-onTouchEvent() 捕获
-    ↓
-判断事件类型（按下/长按/点击/双击）
-    ↓
-读取对应的 Event 配置
-    ↓
-执行事件动作：
-  - 发送键码 (outputKeycodes)
-  - 输出文本 (outputText)
-  - 切换视图组 (bindViewGroup)
-  - 打开菜单 (openMenu)
-  - 等等...
-    ↓
-FCLInput.sendKeyEvent()
-    ↓
-FCLBridge.pushEventKey()
-    ↓
-游戏接收输入
-```
-
-### 2. FCLInput 输入处理
-
-FCLInput 是输入系统的核心，负责：
-
-**键盘事件处理：**
-```java
-public void sendKeyEvent(int keycode, boolean press) {
-    if (MOUSE_MAP.containsKey(keycode)) {
-        // 鼠标按钮
-        bridge.pushEventMouseButton(MOUSE_MAP.get(keycode), press);
-    } else {
-        // 键盘按键
-        bridge.pushEventKey(keycode, 0, press);
-    }
-}
-```
-
-**鼠标移动处理：**
-```java
-public void setPointer(int x, int y) {
-    // 更新光标位置
-    menu.setPointerX(x);
-    menu.setPointerY(y);
-    // 发送到游戏
-    bridge.pushEventPointer(
-        (int)(x * bridge.getScaleFactor()), 
-        (int)(y * bridge.getScaleFactor())
-    );
-}
-```
-
-### 3. 视图组切换
-
-通过 `bindViewGroup` 可以实现控件的动态显示/隐藏：
-
-```java
-public void switchViewGroupVisibility(ControlViewGroup viewGroup) {
-    // 遍历所有控件
-    for (View view : baseLayout.getChildren()) {
-        if (view instanceof CustomView) {
-            // 检查是否属于该视图组
-            if (viewGroup.contains(view)) {
-                // 切换可见性
-                ((CustomView) view).switchParentVisibility();
-            }
-        }
-    }
-}
-```
-
----
-
-## 开发指南
-
-### 1. 创建新控制器
-
-```java
-// 创建控制器
-Controller controller = new Controller("我的控制器");
-controller.setVersion("1.0.0");
-controller.setVersionCode(1);
-controller.setAuthor("开发者");
-controller.setDescription("控制器描述");
-
-// 创建视图组
-ControlViewGroup viewGroup = new ControlViewGroup(UUID.randomUUID().toString());
-viewGroup.setName("主控制");
-viewGroup.setVisibility(ControlViewGroup.Visibility.VISIBLE);
-
-// 添加到控制器
-controller.addViewGroup(viewGroup);
-
-// 保存到磁盘
-controller.saveToDisk();
-```
-
-### 2. 添加按钮
-
-```java
-// 创建按钮数据
-ControlButtonData button = new ControlButtonData(UUID.randomUUID().toString());
-button.setText("W");
-
-// 设置位置和大小
-BaseInfoData baseInfo = button.getBaseInfo();
-baseInfo.setXPosition(500);  // 50.0%
-baseInfo.setYPosition(800);  // 80.0%
-baseInfo.setSizeType(BaseInfoData.SizeType.PERCENTAGE);
-baseInfo.getPercentageWidth().setReference(BaseInfoData.PercentageSize.Reference.SCREEN_WIDTH);
-baseInfo.getPercentageWidth().setSize(50);  // 5.0%
-
-// 设置事件
-ButtonEventData.Event pressEvent = button.getEvent().getPressEvent();
-pressEvent.setAutoKeep(true);  // 按住时持续触发
-pressEvent.getOutputKeycodesList().add(FCLKeycodes.KEY_W);
-
-// 添加到视图组
-viewGroup.getViewData().addButton(button);
-```
-
-### 3. 添加方向键
-
-```java
-// 创建方向键
-ControlDirectionData direction = new ControlDirectionData(UUID.randomUUID().toString());
-
-// 设置位置
-BaseInfoData baseInfo = direction.getBaseInfo();
-baseInfo.setXPosition(100);
-baseInfo.setYPosition(800);
-
-// 设置事件
-DirectionEventData event = direction.getEvent();
-event.setUpKeycode(FCLKeycodes.KEY_W);
-event.setDownKeycode(FCLKeycodes.KEY_S);
-event.setLeftKeycode(FCLKeycodes.KEY_A);
-event.setRightKeycode(FCLKeycodes.KEY_D);
-event.setFollowOption(DirectionEventData.FollowOption.CENTER_FOLLOW);
-event.setSneak(true);
-event.setSneakKeycode(FCLKeycodes.KEY_LEFTSHIFT);
-
-// 添加到视图组
-viewGroup.getViewData().addDirection(direction);
-```
-
-### 4. 自定义按钮样式
-
-```java
-// 创建样式
-ControlButtonStyle style = new ControlButtonStyle("我的样式");
-style.setTextColor(Color.WHITE);
-style.setTextSize(14);
-style.setStrokeWidth(15);  // 1.5dp
-style.setStrokeColor(Color.DKGRAY);
-style.setCornerRadius(50);  // 5dp
-style.setFillColor(Color.TRANSPARENT);
-
-// 按下状态
-style.setTextColorPressed(Color.YELLOW);
-style.setFillColorPressed(Color.LTGRAY);
-
-// 添加到样式库
-ButtonStyles.addStyle(style);
-
-// 应用到按钮
-button.setStyle(style);
-```
-
-### 5. 实现复杂事件
-
-**示例：双击切换视图组**
-
-```json
-{
-  "doubleClickEvent": {
-    "bindViewGroup": ["group-id-1", "group-id-2"]
-  }
-}
-```
-
-**示例：长按输入文本**
-
-```json
-{
-  "longPressEvent": {
-    "outputText": "/gamemode creative"
-  }
-}
-```
-
-**示例：组合键**
-
-```json
-{
-  "pressEvent": {
-    "outputKeycodes": [42, 17]  // Shift + W
-  }
-}
-```
-
-### 6. 加载和使用控制器
-
-```java
-// 从文件加载
-File file = new File(FCLPath.CONTROLLER_DIR, "controller.json");
-String json = FileUtils.readText(file);
-Controller controller = new GsonBuilder()
-    .registerTypeAdapterFactory(new JavaFxPropertyTypeAdapterFactory(true, true))
-    .create()
-    .fromJson(json, Controller.class);
-
-// 应用到游戏
-gameMenu.setController(controller);
-
-// 初始化视图
-viewManager.initializeController();
-```
-
-### 7. 版本兼容性处理
-
-```java
-// 检查版本
-if (controller.getControllerVersion() < Constants.MIN_CONTROLLER_VERSION) {
-    // 不兼容
-    Controller.showIncompatibleDialog(context, controller.getName());
-} else if (controller.getControllerVersion() < Constants.CONTROLLER_VERSION) {
-    // 需要升级
-    Controller.showUpgradeDialog(context, controller.getName(), controller.getId());
-}
-
-// 升级控制器
-controller.upgrade();
-controller.saveToDisk();
-```
-
-### 8. 常用键码参考
-
-```java
-// 字母键
-FCLKeycodes.KEY_A = 29
-FCLKeycodes.KEY_W = 17
-FCLKeycodes.KEY_S = 31
-FCLKeycodes.KEY_D = 32
-
-// 功能键
-FCLKeycodes.KEY_SPACE = 57
-FCLKeycodes.KEY_LEFTSHIFT = 42
-FCLKeycodes.KEY_LEFTCTRL = 29
-FCLKeycodes.KEY_ESC = 1
-FCLKeycodes.KEY_ENTER = 28
-
-// 鼠标
-FCLInput.MOUSE_LEFT = 1000
-FCLInput.MOUSE_MIDDLE = 1001
-FCLInput.MOUSE_RIGHT = 1002
-FCLInput.MOUSE_SCROLL_UP = 1003
-FCLInput.MOUSE_SCROLL_DOWN = 1004
-```
-
----
-
-## 最佳实践
-
-### 1. 性能优化
-
-- 使用百分比尺寸而非绝对尺寸，适配不同屏幕
-- 合理分组控件，避免单个视图组包含过多控件
-- 使用样式复用，减少JSON文件大小
-
-### 2. 用户体验
-
-- 为不同游戏场景创建多个视图组
-- 使用 `visibilityType` 控制控件在游戏/菜单中的显示
-- 提供清晰的按钮文本标识
-
-### 3. 调试技巧
-
-- 使用编辑模式实时调整控件位置
-- 通过日志查看键码输出：`Log.e("测试", keycode + "")`
-- 测试不同屏幕尺寸和分辨率
-
-### 4. 错误处理
-
-```java
-try {
-    controller.saveToDisk();
-} catch (IOException e) {
-    Logging.LOG.log(Level.SEVERE, "Failed to save controller!", e);
-    // 显示错误提示
-}
-```
-
----
-
-## 附录
-
-### A. 完整示例JSON
-
-见下一部分...
+## 文档信息
+
+| 项目 | 值 |
+|------|---|
+| 版本 | 1.0 |
+| 更新日期 | 2026-04-13 |
+| 数据来源 | FoldCraftLauncher 源码分析 |
+| 源码路径 | `e:\project\FoldCraftLauncher` |

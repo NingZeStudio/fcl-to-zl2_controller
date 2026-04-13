@@ -78,10 +78,10 @@ export interface FCLEvent {
 }
 
 export interface FCLDirectionEvent {
-  upKeycode: number
-  downKeycode: number
-  leftKeycode: number
-  rightKeycode: number
+  upKeycode: number | number[]
+  downKeycode: number | number[]
+  leftKeycode: number | number[]
+  rightKeycode: number | number[]
   followOption: 'FIXED' | 'CENTER_FOLLOW' | 'FOLLOW'
   sneak: boolean
   sneakKeycode: number
@@ -105,10 +105,31 @@ export interface FCLButtonStyle {
 
 export interface FCLDirectionStyle {
   name: string
-  strokeWidth: number
-  strokeColor: number
-  fillColor: number
-  strokeWidthPressed: number
-  strokeColorPressed: number
-  fillColorPressed: number
+  styleType: 'BUTTON' | 'ROCKER'
+  buttonStyle?: {
+    interval: number
+    textColor: number
+    textSize: number
+    strokeWidth: number
+    strokeColor: number
+    cornerRadius: number
+    fillColor: number
+    textColorPressed: number
+    textSizePressed: number
+    strokeWidthPressed: number
+    strokeColorPressed: number
+    cornerRadiusPressed: number
+    fillColorPressed: number
+  }
+  rockerStyle?: {
+    rockerSize: number
+    bgCornerRadius: number
+    bgStrokeWidth: number
+    bgStrokeColor: number
+    bgFillColor: number
+    rockerCornerRadius: number
+    rockerStrokeWidth: number
+    rockerStrokeColor: number
+    rockerFillColor: number
+  }
 }
