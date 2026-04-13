@@ -502,7 +502,10 @@ export class FCLToZL2Converter {
   private fclColorToZl2(fclColor: number): string {
     try {
       const unsigned = fclColor >>> 0
-      const longVal = BigInt(unsigned) << 32n
+      let longVal = BigInt(unsigned) << 32n
+      if (longVal >= 0x8000000000000000n) {
+        longVal = longVal - 0x10000000000000000n
+      }
       return longVal.toString()
     } catch {
       return SAFE_ZL2_COLORS.WHITE
