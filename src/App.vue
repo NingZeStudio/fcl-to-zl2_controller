@@ -21,6 +21,30 @@
         </div>
       </div>
 
+      <Alert class="mb-6 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/60">
+        <div class="flex items-start gap-3">
+          <AlertCircle class="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
+          <div class="space-y-2 text-sm text-orange-900 dark:text-orange-100">
+            <div class="font-semibold">网站公告</div>
+            <p>
+              本项目现已开源，仓库地址为
+              <a
+                href="https://github.com/NingZeStudio/fcl-to-zl2_controller"
+                target="_blank"
+                rel="noreferrer"
+                class="font-medium underline underline-offset-4"
+              >
+                GitHub / NingZeStudio / fcl-to-zl2_controller
+              </a>
+              。
+            </p>
+            <p>
+              由于我们正在部署新的控件转换网站，当前网站不再维护；新网站公开后，此公告会同步更新。
+            </p>
+          </div>
+        </div>
+      </Alert>
+
       <!-- 顶部导航 -->
       <div class="flex justify-center mb-10">
         <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-1.5 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex gap-2">
@@ -53,6 +77,9 @@
             </h1>
             <p class="text-slate-600 dark:text-slate-400">
               {{ conversionMode === 'fcl-to-zl2' ? '将 Fold Craft Launcher 控件配置转换为 ZalithLauncher 2 格式' : '将 ZalithLauncher 2 控件配置转换为 Fold Craft Launcher 格式' }}
+            </p>
+            <p class="mt-2 text-sm text-orange-700 dark:text-orange-300">
+              项目已开源，当前网站停止维护；新站公开后会在此同步公告。
             </p>
           </div>
           <div class="flex w-full md:w-auto bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
@@ -268,13 +295,28 @@
           <p class="text-slate-600 dark:text-slate-400">
             可视化创建和编辑 Fold Craft Launcher 控件布局
           </p>
+          <p class="mt-2 text-sm text-orange-700 dark:text-orange-300">
+            项目已开源，当前网站不再维护；后续请关注此处的公告更新。
+          </p>
         </div>
         <FCLEditor />
       </div>
 
       <!-- 页脚 -->
-      <div class="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+      <div class="mt-8 space-y-2 text-center text-sm text-slate-500 dark:text-slate-400">
         <p>基于 FCL 和 ZL2 控件系统文档开发</p>
+        <p>
+          开源仓库：
+          <a
+            href="https://github.com/NingZeStudio/fcl-to-zl2_controller"
+            target="_blank"
+            rel="noreferrer"
+            class="text-slate-700 underline underline-offset-4 dark:text-slate-300"
+          >
+            github.com/NingZeStudio/fcl-to-zl2_controller
+          </a>
+        </p>
+        <p>当前站点已停止维护，新的控件转换网站公开后会在此同步公告。</p>
       </div>
     </div>
   </div>

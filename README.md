@@ -1,20 +1,28 @@
 # FCL 到 ZL2 控件转换器
 
-## 🌐 在线使用
+## 项目状态公告
 
-**立即访问**: [https://ftzc.lemwood.cn/](https://ftzc.lemwood.cn/)
+- 本项目现已开源。
+- GitHub 仓库地址: [https://github.com/NingZeStudio/fcl-to-zl2_controller](https://github.com/NingZeStudio/fcl-to-zl2_controller)
+- 由于我们正在部署新的控件转换网站，当前网站不再维护。
+- 新网站公开后，此公告会同步更新。
 
-一个基于 Vue 3 + TypeScript + Vite 的 Web 应用，用于将 Fold Craft Launcher (FCL) 控件配置转换为 ZalithLauncher 2 (ZL2) 格式。
+## 历史在线地址
+
+- 旧站入口: [https://ftzc.lemwood.cn/](https://ftzc.lemwood.cn/)
+- 说明: 该地址保留为历史在线入口，不再作为持续维护的主站。
+
+这是一个基于 Vue 3 + TypeScript + Vite 的 Web 应用，用于将 Fold Craft Launcher (FCL) 控件配置转换为 ZalithLauncher 2 (ZL2) 格式。
 
 ## 功能特性
 
-- ✅ 完整的 FCL 到 ZL2 控件转换
-- ✅ 自动键码映射（FCL → GLFW）
-- ✅ 方向键转换为 8 方向按钮
-- ✅ 安全的颜色值处理（避免崩溃）
-- ✅ 实时转换预览
-- ✅ 一键复制/下载结果
-- ✅ 响应式设计，支持移动端
+- 完整的 FCL 到 ZL2 控件转换
+- 自动键码映射（FCL → GLFW）
+- 方向键转换为 8 方向按钮
+- 安全的颜色值处理（避免崩溃）
+- 实时转换预览
+- 一键复制或下载结果
+- 响应式设计，支持移动端
 
 ## 使用说明
 

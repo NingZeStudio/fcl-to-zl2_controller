@@ -1,12 +1,19 @@
-# 🎯 从这里开始！
+# 从这里开始
 
-## 欢迎使用 FCL 到 ZL2 控件转换器！
+## 项目状态公告
 
-这是一个帮助你将 Fold Craft Launcher (FCL) 控件配置转换为 ZalithLauncher 2 (ZL2) 格式的 Web 应用。
+- 本项目现已开源，仓库地址: [https://github.com/NingZeStudio/fcl-to-zl2_controller](https://github.com/NingZeStudio/fcl-to-zl2_controller)
+- 当前仓库仍可用于本地运行、研究和自行部署
+- 由于新的控件转换网站正在部署，当前线上站点不再维护
+- 新网站公开后，此处公告会同步更新
+
+## 欢迎使用 FCL 到 ZL2 控件转换器
+
+这是一个帮助你将 Fold Craft Launcher (FCL) 控件配置转换为 ZalithLauncher 2 (ZL2) 格式的 Web 应用。当前仓库仍可继续本地运行与参考。
 
 ---
 
-## ⚡ 快速开始（3 步）
+## 快速开始（3 步）
 
 ### 1️⃣ 安装依赖（首次运行）
 
@@ -54,7 +61,7 @@ VITE v5.4.21  ready in 632 ms
 
 ---
 
-## 📚 需要帮助？
+## 需要帮助？
 
 ### 新手用户
 👉 阅读 [快速启动.md](./快速启动.md)
@@ -67,6 +74,9 @@ VITE v5.4.21  ready in 632 ms
 
 ### 了解项目
 👉 阅读 [README.md](./README.md)
+ 
+### 开源仓库
+👉 访问 [GitHub 仓库](https://github.com/NingZeStudio/fcl-to-zl2_controller)
 
 ---
 
