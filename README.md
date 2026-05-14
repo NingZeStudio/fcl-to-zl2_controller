@@ -4,8 +4,8 @@
 
 - 本项目现已开源。
 - GitHub 仓库地址: [https://github.com/NingZeStudio/fcl-to-zl2_controller](https://github.com/NingZeStudio/fcl-to-zl2_controller)
-- 由于我们正在部署新的控件转换网站，当前网站不再维护。
-- 新网站公开后，此公告会同步更新。
+- 新的控件转换网站已发布: [https://cc.miawa.cn/](https://cc.miawa.cn/)
+- 当前网站不再维护，请优先使用新站。
 
 ## 历史在线地址
 

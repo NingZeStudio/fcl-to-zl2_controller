@@ -39,7 +39,16 @@
               。
             </p>
             <p>
-              由于我们正在部署新的控件转换网站，当前网站不再维护；新网站公开后，此公告会同步更新。
+              新的控件转换网站已发布：
+              <a
+                href="https://cc.miawa.cn/"
+                target="_blank"
+                rel="noreferrer"
+                class="font-medium underline underline-offset-4"
+              >
+                https://cc.miawa.cn/
+              </a>
+              。当前网站不再维护，请优先使用新站。
             </p>
           </div>
         </div>
@@ -79,7 +88,7 @@
               {{ conversionMode === 'fcl-to-zl2' ? '将 Fold Craft Launcher 控件配置转换为 ZalithLauncher 2 格式' : '将 ZalithLauncher 2 控件配置转换为 Fold Craft Launcher 格式' }}
             </p>
             <p class="mt-2 text-sm text-orange-700 dark:text-orange-300">
-              项目已开源，当前网站停止维护；新站公开后会在此同步公告。
+              项目已开源，当前网站停止维护；新站地址为 https://cc.miawa.cn/。
             </p>
           </div>
           <div class="flex w-full md:w-auto bg-white dark:bg-slate-800 p-1 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
@@ -296,7 +305,7 @@
             可视化创建和编辑 Fold Craft Launcher 控件布局
           </p>
           <p class="mt-2 text-sm text-orange-700 dark:text-orange-300">
-            项目已开源，当前网站不再维护；后续请关注此处的公告更新。
+            项目已开源，当前网站不再维护；请前往 https://cc.miawa.cn/ 使用新站。
           </p>
         </div>
         <FCLEditor />
@@ -316,7 +325,7 @@
             github.com/NingZeStudio/fcl-to-zl2_controller
           </a>
         </p>
-        <p>当前站点已停止维护，新的控件转换网站公开后会在此同步公告。</p>
+        <p>当前站点已停止维护，请前往 https://cc.miawa.cn/ 使用新的控件转换网站。</p>
       </div>
     </div>
   </div>
